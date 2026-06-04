@@ -1,0 +1,283 @@
+﻿import { EXPENSE_CATEGORIES, normalizeExpenseCategory } from "../features/expense-categories.js?v=20260604-qa-weather-ocr";
+import { buildCategoryPieGradient, summarizeDailySpending } from "../features/expense-dashboard.js";
+import { convertToBaseAmount } from "../features/expenses.js";
+import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
+import { calculateSettlement } from "../features/settlement.js";
+import { buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { getAvatarPreset } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
+import { state } from "../state/app-state.js";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
+import { formatCurrency } from "../utils/currency.js";
+import { escapeHtml, formToObject } from "../utils/dom.js";
+
+const T = {
+  dashboard: "\u6210\u54e1\u652f\u51fa",
+  paid: "\u4ed8\u6b3e",
+  spent: "\u61c9\u5206\u6524",
+  transfers: "\u4ed8\u6b3e\u8a66\u7b97",
+  payTo: "\u4ed8\u7d66",
+  noTransfer: "\u76ee\u524d\u4e0d\u9700\u8981\u4e92\u76f8\u8f49\u5e33",
+  daily: "\u6bcf\u65e5\u8a18\u5e33",
+  dailyCuteDashboard: "\u6bcf\u65e5\u82b1\u8cbb\u5100\u8868\u677f",
+  todaySpend: "\u4eca\u65e5\u82b1\u8cbb",
+  tripSpend: "\u7d2f\u8a08\u82b1\u8cbb",
+  perPersonAverage: "\u6bcf\u4eba\u5e73\u5747",
+  topCategory: "\u6700\u9ad8\u5206\u985e",
+  noCategory: "\u5c1a\u7121\u5206\u985e",
+  budgetOk: "\u5728\u9810\u7b97\u5167",
+  budgetOver: "\u5df2\u8d85\u652f",
+  budgetLeft: "\u9810\u7b97\u5269\u9918",
+  budgetExceeded: "\u8d85\u51fa",
+  dayExpense: "\u7684\u652f\u51fa",
+  noExpense: "\u9019\u4e00\u5929\u9084\u6c92\u6709\u8a18\u5e33",
+  addExpense: "\u65b0\u589e\u8a18\u5e33",
+  editExpense: "\u7de8\u8f2f\u8a18\u5e33",
+  item: "\u54c1\u9805",
+  category: "\u5206\u985e",
+  date: "\u65e5\u671f",
+  originalAmount: "\u539f\u5e63\u91d1\u984d",
+  baseAmount: "\u53f0\u5e63\u91d1\u984d",
+  currency: "\u5e63\u5225",
+  rate: "\u532f\u7387",
+  payer: "\u4ed8\u6b3e\u4eba",
+  participants: "\u5206\u5e33\u5c0d\u8c61",
+  splitMode: "\u5206\u5e33\u65b9\u5f0f",
+  equal: "\u7b49\u5206",
+  ratio: "\u6bd4\u4f8b",
+  fixed: "\u624b\u52d5\u91d1\u984d",
+  save: "\u5132\u5b58",
+  close: "\u95dc\u9589",
+  edit: "\u7de8\u8f2f",
+  delete: "\u522a\u9664",
+  receiptPhoto: "\u6536\u64da\u7167\u7247",
+  payerPrefix: "\u4ed8\u6b3e\u4eba",
+  journalDay: "\u65c5\u8a18\u65e5",
+  count: "\u7b46",
+  unknownMember: "\u672a\u77e5\u6210\u54e1",
+};
+
+export function expensesView(trip, render) {
+  const settlement = calculateSettlement(trip.members, trip.expenseItems);
+  const memberSummary = calculateMemberExpenseSummary(trip.members, trip.expenseItems);
+  const dates = listExpenseDates(trip);
+  const activeDate = dates.includes(state.expenseDateFilter) ? state.expenseDateFilter : dates[0] || trip.startDate || new Date().toISOString().slice(0, 10);
+  const dayExpenses = trip.expenseItems.filter((item) => getExpenseDate(item, trip) === activeDate);
+
+  return {
+    html: `
+      ${renderDailySpendingDashboard(trip, activeDate)}
+      ${renderMemberDashboard(trip, memberSummary)}
+      ${renderTransferPanel(trip, settlement)}
+      ${renderDateTabs(trip, dates, activeDate)}
+      <section class="panel span-all expense-ledger">
+        <div class="section-title"><div><h2>${T.daily}</h2><p>${escapeHtml(activeDate)} ${T.dayExpense}</p></div></div>
+        <div class="list">${dayExpenses.map((item) => renderExpense(item, trip)).join("") || `<div class="empty">${T.noExpense}</div>`}</div>
+      </section>
+      <button class="fab" type="button" data-open-expense-sheet aria-label="${T.addExpense}">+</button>
+      ${renderExpenseSheet(trip, activeDate)}
+    `,
+    bind(root) {
+      root.addEventListener("click", (event) => {
+        const date = event.target.closest("[data-expense-date-tab]")?.dataset.expenseDateTab;
+        if (date) {
+          state.expenseDateFilter = date;
+          render();
+          return;
+        }
+        if (event.target.closest("[data-open-expense-sheet]")) {
+          state.modal = { type: "expense", mode: "add", id: null, expenseDate: activeDate };
+          render();
+          return;
+        }
+        if (event.target.closest("[data-close-sheet]")) {
+          state.modal = null;
+          render();
+          return;
+        }
+        const editId = event.target.closest("[data-edit-expense]")?.dataset.editExpense;
+        const deleteId = event.target.closest("[data-delete-expense]")?.dataset.deleteExpense;
+        if (editId) {
+          state.modal = { type: "expense", mode: "edit", id: editId, expenseDate: activeDate };
+          render();
+          return;
+        }
+        if (deleteId) {
+          state.store = updateActiveTrip(state.store, (draft) => {
+            draft.expenseItems = draft.expenseItems.filter((item) => item.id !== deleteId);
+            return draft;
+          });
+          render();
+        }
+      });
+      root.querySelector("[data-expense-form]")?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const data = formToObject(event.currentTarget);
+        const participantIds = [...root.querySelectorAll("[name='participantIds']:checked")].map((input) => input.value);
+        const splitValues = buildSplitValues(participantIds, data.splitMode, readSplitValuesFromForm(event.currentTarget), Number(data.totalBase || 0));
+        const item = {
+          id: state.modal?.mode === "edit" ? state.modal.id : crypto.randomUUID(),
+          receiptBatchId: entry?.receiptBatchId ?? null,
+          source: entry?.source || "manual",
+          originalName: data.translatedName,
+          translatedName: data.translatedName,
+          category: normalizeExpenseCategory(data.category),
+          quantity: 1,
+          unitPriceOriginal: Number(data.totalOriginal || data.totalBase || 0),
+          totalOriginal: Number(data.totalOriginal || data.totalBase || 0),
+          currency: data.currency || trip.tripCurrency,
+          exchangeRate: Number(data.exchangeRate || trip.exchangeRate || 1),
+          totalBase: Number(data.totalBase || convertToBaseAmount(data.totalOriginal, data.exchangeRate || trip.exchangeRate)),
+          payerId: data.payerId,
+          participantIds,
+          splitMode: data.splitMode || "equal",
+          splitValues,
+          expenseDate: data.expenseDate || activeDate,
+          receiptPhotoUrl: entry?.receiptPhotoUrl || "",
+          receiptPhotoPath: entry?.receiptPhotoPath || "",
+          receiptPhotoProvider: entry?.receiptPhotoProvider || "",
+          createdAt: entry?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        state.store = updateActiveTrip(state.store, (draft) => {
+          const index = draft.expenseItems.findIndex((entry) => entry.id === item.id);
+          if (index >= 0) draft.expenseItems[index] = { ...draft.expenseItems[index], ...item };
+          else draft.expenseItems.push(item);
+          return draft;
+        });
+        state.expenseDateFilter = item.expenseDate;
+        state.modal = null;
+        render();
+      });
+    },
+  };
+}
+
+function renderDailySpendingDashboard(trip, activeDate) {
+  const summary = summarizeDailySpending(trip, activeDate);
+  const gradient = buildCategoryPieGradient(summary.categoryTotals);
+  const budgetText = summary.isOverBudget
+    ? `${T.budgetOver} ${formatCurrency(Math.abs(summary.budgetDelta))}`
+    : `${T.budgetLeft} ${formatCurrency(summary.budgetDelta)}`;
+  return `
+    <section class="panel span-all daily-spend-dashboard">
+      <div class="section-title">
+        <div><h2>${T.dailyCuteDashboard}</h2><p>${escapeHtml(activeDate)} ・ ${summary.isOverBudget ? T.budgetOver : T.budgetOk}</p></div>
+        <span class="pill">${budgetText}</span>
+      </div>
+      <div class="daily-spend-grid">
+        <div class="daily-spend-pie" style="--pie:${escapeHtml(gradient)}">
+          <div><strong>${Math.min(999, Math.round(summary.budgetRatio * 100))}%</strong><span>${T.todaySpend}</span></div>
+        </div>
+        <div class="daily-spend-stats">
+          <span>${T.todaySpend}<strong>${formatCurrency(summary.todayTotal)}</strong></span>
+          <span>${T.tripSpend}<strong>${formatCurrency(summary.tripTotal)}</strong></span>
+          <span>${T.perPersonAverage}<strong>${formatCurrency(summary.averagePerMember)}</strong></span>
+          <span>${T.topCategory}<strong>${escapeHtml(summary.topCategory?.category || T.noCategory)}</strong></span>
+        </div>
+      </div>
+      <div class="category-spend-list">
+        ${summary.categoryTotals.map((entry) => `
+          <div class="category-spend-item" style="--category-color:${entry.color}">
+            <span>${escapeHtml(entry.category)}</span>
+            <strong>${formatCurrency(entry.amount)}</strong>
+            <em style="width:${Math.max(4, Math.round(entry.ratio * 100))}%"></em>
+          </div>
+        `).join("") || `<div class="empty">${T.noExpense}</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderMemberDashboard(trip, summary) {
+  return `
+    <section class="panel span-all expense-dashboard">
+      <div class="section-title"><h2>${T.dashboard}</h2></div>
+      <div class="member-expense-grid">
+        ${trip.members.map((member) => {
+          const entry = summary[member.id] || { paid: 0, spent: 0, net: 0 };
+          return `
+            <article class="member-expense-card" style="--member-color:${member.color}">
+              <span class="member-color-bar"></span>
+              <div class="member-expense-head"><img class="member-avatar" src="${escapeHtml(member.avatarUrl || getAvatarPreset(member.avatarPresetId).url)}" alt="" /><div><h3>${escapeHtml(member.name)}</h3><span class="${entry.net >= 0 ? "positive" : "negative"}">${formatCurrency(entry.net)}</span></div></div>
+              <div class="member-expense-stats"><span>${T.paid}<strong>${formatCurrency(entry.paid)}</strong></span><span>${T.spent}<strong>${formatCurrency(entry.spent)}</strong></span></div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderTransferPanel(trip, settlement) {
+  return `
+    <section class="panel span-all">
+      <div class="section-title"><h2>${T.transfers}</h2></div>
+      <div class="transfer-list">
+        ${settlement.transfers.map((transfer) => `<div class="transfer-card"><span>${nameOf(trip, transfer.fromId)}</span><span class="transfer-arrow">${T.payTo}</span><span>${nameOf(trip, transfer.toId)}</span><strong class="money">${formatCurrency(transfer.amount)}</strong></div>`).join("") || `<div class="empty">${T.noTransfer}</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderDateTabs(trip, dates, activeDate) {
+  return `
+    <section class="panel span-all expense-day-panel">
+      <div class="expense-day-tabs">
+        ${dates.map((date) => {
+          const day = trip.itineraryDays.find((entry) => entry.date === date);
+          const count = (trip.expenseItems || []).filter((entry) => getExpenseDate(entry, trip) === date).length;
+          return `<button class="expense-day-tab ${date === activeDate ? "is-active" : ""}" type="button" data-expense-date-tab="${date}"><span>${escapeHtml(day?.title || T.journalDay)}</span><strong>${escapeHtml(date.slice(5))}</strong><em>${count} ${T.count}</em></button>`;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderExpense(item, trip) {
+  const receipt = trip.receiptBatches?.find((batch) => batch.id === item.receiptBatchId);
+  const photoUrl = item.receiptPhotoUrl || receipt?.photoUrl || "";
+  return `
+    <article class="expense-entry ${photoUrl ? "has-receipt-photo" : ""}">
+      <span class="expense-entry-color" style="--payer-color:${memberOf(trip, item.payerId)?.color || "#116b63"}"></span>
+      <div class="expense-entry-main">
+        <div><h3>${escapeHtml(item.translatedName || item.originalName)}</h3><p>${escapeHtml(item.category)} ・ ${T.payerPrefix} ${escapeHtml(nameOf(trip, item.payerId))}</p></div>
+        <strong>${formatCurrency(item.totalBase)}</strong>
+        ${photoUrl ? `<a class="expense-receipt-thumb" href="${escapeHtml(photoUrl)}" target="_blank" rel="noreferrer" aria-label="${T.receiptPhoto}"><img src="${escapeHtml(photoUrl)}" alt="${T.receiptPhoto}" /></a>` : ""}
+      </div>
+      <div class="expense-entry-side"><span>${escapeHtml(item.expenseDate || "")}</span><div class="row-actions"><button class="action-pill" data-edit-expense="${item.id}">${T.edit}</button><button class="action-pill danger" data-delete-expense="${item.id}">${T.delete}</button></div></div>
+    </article>
+  `;
+}
+
+function renderExpenseSheet(trip, activeDate) {
+  if (state.modal?.type !== "expense") return "";
+  const entry = state.modal.mode === "edit" ? trip.expenseItems.find((item) => item.id === state.modal.id) : null;
+  const participants = new Set(entry?.participantIds || trip.members.map((member) => member.id));
+  return `
+    <div class="sheet-backdrop">
+      <section class="bottom-sheet">
+        <div class="sheet-head"><h2>${entry ? T.editExpense : T.addExpense}</h2><button class="action-pill" data-close-sheet>${T.close}</button></div>
+        <form class="form-grid" data-expense-form>
+          <div class="field"><label>${T.item}</label><input class="input" name="translatedName" value="${escapeHtml(entry?.translatedName || "")}" required /></div>
+          <div class="form-row"><div class="field"><label>${T.category}</label><select class="select" name="category">${EXPENSE_CATEGORIES.map((cat) => `<option value="${cat}" ${entry?.category === cat ? "selected" : ""}>${cat}</option>`).join("")}</select></div><div class="field"><label>${T.date}</label><input class="input" type="date" name="expenseDate" value="${escapeHtml(entry?.expenseDate || activeDate)}" /></div></div>
+          <div class="form-row"><div class="field"><label>${T.originalAmount}</label><input class="input" name="totalOriginal" inputmode="decimal" value="${escapeHtml(entry?.totalOriginal || "")}" /></div><div class="field"><label>${T.baseAmount}</label><input class="input" name="totalBase" inputmode="decimal" value="${escapeHtml(entry?.totalBase || "")}" required /></div></div>
+          <div class="form-row"><div class="field"><label>${T.currency}</label><input class="input" name="currency" value="${escapeHtml(entry?.currency || trip.tripCurrency)}" /></div><div class="field"><label>${T.rate}</label><input class="input" name="exchangeRate" inputmode="decimal" value="${escapeHtml(entry?.exchangeRate || trip.exchangeRate)}" /></div></div>
+          <div class="field"><label>${T.payer}</label><select class="select" name="payerId">${trip.members.map((member) => `<option value="${member.id}" ${entry?.payerId === member.id ? "selected" : ""}>${escapeHtml(member.name)}</option>`).join("")}</select></div>
+          <div class="field"><label>${T.participants}</label><div class="meta-row">${trip.members.map((member) => `<label class="member-chip"><input type="checkbox" name="participantIds" value="${member.id}" ${participants.has(member.id) ? "checked" : ""} />${escapeHtml(member.name)}</label>`).join("")}</div></div>
+          <div class="field"><label>${T.splitMode}</label><select class="select" name="splitMode"><option value="equal">${T.equal}</option><option value="ratio" ${entry?.splitMode === "ratio" ? "selected" : ""}>${T.ratio}</option><option value="fixed" ${entry?.splitMode === "fixed" ? "selected" : ""}>${T.fixed}</option></select></div>
+          <div class="split-value-grid">${trip.members.map((member) => `<label class="split-value-row"><span>${escapeHtml(member.name)}</span><input class="input" data-split-value="${member.id}" value="${escapeHtml(entry?.splitValues?.[member.id] ?? "")}" /></label>`).join("")}</div>
+          <button class="button primary full" type="submit">${T.save}</button>
+        </form>
+      </section>
+    </div>
+  `;
+}
+
+function memberOf(trip, memberId) {
+  return trip.members.find((member) => member.id === memberId);
+}
+
+function nameOf(trip, memberId) {
+  return memberOf(trip, memberId)?.name || T.unknownMember;
+}
+

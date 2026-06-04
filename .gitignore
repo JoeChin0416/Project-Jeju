@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.firebase/
+test-results/
+*.log
+.env
+.env.*
+.omx/
+artifacts/
+guam-trip/
+guam-style-analysis.html

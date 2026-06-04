@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isPasswordUser() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == "password";
+    }
+
+    function isGoogleUser() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == "google.com";
+    }
+
+    function accessSettingsDocument() {
+      return /databases/$(database)/documents/sharedTrips/jeju-2026-girls/access/default;
+    }
+
+    function googleUserIsAllowed() {
+      return isGoogleUser()
+        && exists(accessSettingsDocument())
+        && request.auth.token.email in get(accessSettingsDocument()).data.settings.googleWhitelist;
+    }
+
+    function sharedTripUserIsAllowed() {
+      return isPasswordUser() || googleUserIsAllowed();
+    }
+
+    match /sharedTrips/jeju-2026-girls/access/default {
+      allow read: if signedIn();
+      allow create, update, delete: if isPasswordUser();
+    }
+
+    match /sharedTrips/jeju-2026-girls/stores/default {
+      allow read, create, update: if sharedTripUserIsAllowed();
+      allow delete: if false;
+    }
+
+    match /users/{uid}/{document=**} {
+      allow read, create, update, delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

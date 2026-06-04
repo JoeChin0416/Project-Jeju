@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isPasswordUser() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == "password";
+    }
+
+    function isGoogleUser() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == "google.com";
+    }
+
+    function accessSettingsDocument() {
+      return /databases/(default)/documents/sharedTrips/jeju-2026-girls/access/default;
+    }
+
+    function googleUserIsAllowed() {
+      return isGoogleUser()
+        && firestore.exists(accessSettingsDocument())
+        && request.auth.token.email in firestore.get(accessSettingsDocument()).data.settings.googleWhitelist;
+    }
+
+    function sharedTripUserIsAllowed() {
+      return isPasswordUser() || googleUserIsAllowed();
+    }
+
+    function validImageUpload() {
+      return request.resource != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches("image/.*");
+    }
+
+    match /trips/{tripId}/{allPaths=**} {
+      allow read, delete: if sharedTripUserIsAllowed();
+      allow create, update: if sharedTripUserIsAllowed() && validImageUpload();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
