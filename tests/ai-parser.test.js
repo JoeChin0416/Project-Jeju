@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildReceiptPrompt, parseGeminiReceiptText } from "../src/services/ai.js";
+import { buildReceiptPrompt, parseGeminiReceiptText, parseGeminiTranslationLayoutText } from "../src/services/ai.js";
 
 test("builds a strict receipt prompt that excludes receipt summary rows", () => {
   const prompt = buildReceiptPrompt("KRW");
@@ -75,4 +75,31 @@ test("throws a readable error for invalid Gemini receipt output", () => {
     () => parseGeminiReceiptText("not json", "KRW"),
     /format that could not be parsed/,
   );
+});
+
+test("parses translation layout boxes for image overlay", () => {
+  const layout = parseGeminiTranslationLayoutText(`
+    {
+      "summary": "菜單翻譯",
+      "translations": [
+        {
+          "originalText": "Americano",
+          "translatedTextZhTw": "美式咖啡",
+          "box": { "x": 120, "y": 220, "width": 280, "height": 60 }
+        },
+        {
+          "originalText": "Total",
+          "translatedText": "總計",
+          "x": 780,
+          "y": 910,
+          "width": 180,
+          "height": 48
+        }
+      ]
+    }
+  `);
+
+  assert.equal(layout.summary, "菜單翻譯");
+  assert.deepEqual(layout.translations.map((entry) => entry.translatedText), ["美式咖啡", "總計"]);
+  assert.deepEqual(layout.translations[0].box, { x: 120, y: 220, width: 280, height: 60 });
 });

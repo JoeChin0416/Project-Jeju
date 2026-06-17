@@ -4,6 +4,12 @@ export function convertToBaseAmount(amount, exchangeRate) {
   return Math.round(Number(amount || 0) * Number(exchangeRate || 1) * 100) / 100;
 }
 
+export function convertFromBaseAmount(amount, exchangeRate) {
+  const rate = Number(exchangeRate || 1);
+  if (!Number.isFinite(rate) || rate <= 0) return Math.round(Number(amount || 0) * 100) / 100;
+  return Math.round((Number(amount || 0) / rate) * 100) / 100;
+}
+
 export function createExpenseFromReceiptItem(item, options) {
   const totalBase = convertToBaseAmount(item.subtotal, options.exchangeRate);
 

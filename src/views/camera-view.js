@@ -2,7 +2,7 @@
 import { createExpenseFromReceiptItem } from "../features/expenses.js";
 import { calculateReceiptTotal, createBlankReceiptItem, updateReceiptDraftItem, updateReceiptDraftMeta } from "../features/receipt-draft.js?v=20260604-qa-weather-ocr";
 import { buildSplitValues } from "../features/split-values.js?v=20260604-qa-weather-ocr";
-import { recognizeReceiptImage, translateImage } from "../services/ai.js";
+import { recognizeReceiptImage, translateImageLayout } from "../services/ai.js";
 import { uploadReceiptPhoto } from "../services/storage.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
@@ -19,6 +19,8 @@ const T = {
   translateHint: "\u4e0a\u50b3\u7167\u7247\u5f8c\u6703\u5c07\u53ef\u898b\u6587\u5b57\u7ffb\u8b6f\u6210\u7e41\u9ad4\u4e2d\u6587\u3002",
   recognizing: "AI \u8fa8\u8b58\u4e2d...",
   resultTitle: "\u7ffb\u8b6f\u7d50\u679c",
+  translationOverlayHint: "已保留原圖，中文翻譯會盡量貼在原文位置；若位置不準可參考下方文字清單。",
+  noTranslationBoxes: "AI 沒有回傳可定位文字，先顯示純文字翻譯。",
   confirmTitle: "OCR \u8fa8\u8b58\u78ba\u8a8d",
   confirmHint: "\u53ea\u4fdd\u7559\u771f\u6b63\u8cfc\u8cb7\u7684\u54c1\u9805\uff1b\u9000\u7a05\u3001\u512a\u60e0\u5238\u3001\u6298\u6263\u8207 VAT \u4e0d\u6703\u532f\u5165\u6210\u54c1\u9805\u3002",
   demo: "\u5c1a\u672a\u8a2d\u5b9a AI API Key\uff0c\u76ee\u524d\u986f\u793a\u7684\u662f\u793a\u7bc4\u8cc7\u6599\u3002",
@@ -64,7 +66,7 @@ export function cameraView(trip, render) {
       </section>
       ${state.loading ? `<section class="panel span-all"><div class="status">${T.recognizing}</div></section>` : ""}
       ${state.ocrDraft ? renderReceiptDraft(trip) : ""}
-      ${state.translationResult ? `<section class="panel span-all"><div class="section-title"><h2>${T.resultTitle}</h2></div><p>${escapeHtml(state.translationResult)}</p></section>` : ""}
+      ${state.translationResult || state.translationLayout ? renderTranslationResult() : ""}
     `,
     bind(root) {
       root.addEventListener("click", (event) => {
@@ -75,6 +77,7 @@ export function cameraView(trip, render) {
           state.ocrPayerId = "";
           state.ocrParticipantIds = [];
           state.translationResult = "";
+          state.translationLayout = null;
           render();
           return;
         }
@@ -143,6 +146,7 @@ export function bindImageInput(render) {
     state.receiptPhotoDraftProvider = "";
     if (state.imagePreviewUrl) URL.revokeObjectURL(state.imagePreviewUrl);
     state.translationResult = "";
+    state.translationLayout = null;
     render();
 
     let previewUrl = "";
@@ -176,7 +180,8 @@ export function bindImageInput(render) {
         state.receiptPhotoDraftPath = state.ocrDraft.photoPath;
         state.receiptPhotoDraftProvider = state.ocrDraft.photoProvider;
       } else {
-        state.translationResult = await translateImage(ocrFile);
+        state.translationLayout = await translateImageLayout(ocrFile);
+        state.translationResult = translationTextFromLayout(state.translationLayout);
       }
     } catch (error) {
       state.error = error.message || T.failed;
@@ -186,6 +191,51 @@ export function bindImageInput(render) {
       render();
     }
   });
+}
+
+function renderTranslationResult() {
+  const layout = state.translationLayout || { summary: state.translationResult, translations: [] };
+  const translations = layout.translations || [];
+  return `
+    <section class="panel span-all translation-result-panel">
+      <div class="section-title">
+        <div><h2>${T.resultTitle}</h2><p>${T.translationOverlayHint}</p></div>
+      </div>
+      ${state.imagePreviewUrl ? renderTranslationPreview(translations) : ""}
+      ${translations.length === 0 ? `<div class="status">${T.noTranslationBoxes}</div>` : ""}
+      <div class="translation-text-list">
+        ${translations.map((entry) => `
+          <article class="translation-text-row">
+            <span>${escapeHtml(entry.originalText || "")}</span>
+            <strong>${escapeHtml(entry.translatedText)}</strong>
+          </article>
+        `).join("") || `<p>${escapeHtml(state.translationResult || layout.summary || "")}</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderTranslationPreview(translations) {
+  return `
+    <div class="translation-preview">
+      <img src="${state.imagePreviewUrl}" alt="${T.resultTitle}" />
+      ${translations.map((entry) => {
+        const left = entry.box.x / 10;
+        const top = entry.box.y / 10;
+        const width = Math.max(12, entry.box.width / 10);
+        return `
+          <span class="translation-overlay-box" style="left:${left}%;top:${top}%;width:${width}%">
+            ${escapeHtml(entry.translatedText)}
+          </span>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function translationTextFromLayout(layout) {
+  if (layout?.translations?.length) return layout.translations.map((entry) => entry.translatedText).join("\n");
+  return layout?.summary || "";
 }
 
 function renderReceiptDraft(trip) {

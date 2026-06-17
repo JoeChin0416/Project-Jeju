@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   estimateTravelMinutes,
+  formatSegmentEstimate,
   getSegmentEstimate,
   haversineKm,
 } from "../src/features/distance.js";
@@ -30,4 +31,24 @@ test("returns null segment estimate when coordinates are missing", () => {
   );
 
   assert.equal(estimate, null);
+});
+
+test("uses manual distance and minutes when coordinates are not available", () => {
+  const estimate = getSegmentEstimate(
+    { name: "A", manualDistanceKmToNext: "12.5", manualMinutesToNext: "28" },
+    { name: "B" },
+    "driving",
+  );
+
+  assert.deepEqual(estimate, {
+    distanceKm: 12.5,
+    minutes: 28,
+    mode: "driving",
+    source: "manual",
+  });
+});
+
+test("formats missing and available segment estimates in Traditional Chinese", () => {
+  assert.equal(formatSegmentEstimate(null), "未設定距離");
+  assert.equal(formatSegmentEstimate({ distanceKm: 5.4, minutes: 12 }), "5.4 km / 約 12 分");
 });

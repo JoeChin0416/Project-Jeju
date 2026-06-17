@@ -49,6 +49,7 @@ export const state = {
   receiptPhotoDraftPath: "",
   receiptPhotoDraftProvider: "",
   translationResult: "",
+  translationLayout: null,
 };
 
 export function setState(patch) {

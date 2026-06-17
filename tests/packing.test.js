@@ -15,11 +15,11 @@ test("defines practical default packing categories", () => {
     "衣物穿搭",
     "美妝保養",
     "藥品保健",
-    "拍照小物",
+    "3C與拍照",
   ]);
 });
 
-test("creates common packing items for each member", () => {
+test("creates a fuller girls trip packing starter list for each member", () => {
   const items = createDefaultPackingItems(members);
   const ownerIds = new Set(items.map((item) => item.ownerId));
   const names = new Set(items.map((item) => item.name));
@@ -28,6 +28,12 @@ test("creates common packing items for each member", () => {
   assert.equal(ownerIds.has("m-b"), true);
   assert.equal(names.has("護照"), true);
   assert.equal(names.has("牙刷牙膏"), true);
-  assert.equal(names.has("彩妝"), true);
+  assert.equal(names.has("電棒捲"), true);
+  assert.equal(names.has("離子夾"), true);
+  assert.equal(names.has("洋裝 / 裙裝"), true);
+  assert.equal(names.has("吹風機"), true);
+  assert.equal(names.has("輕便雨衣 / 防風外套"), true);
+  assert.equal(names.has("泳衣"), false);
   assert.equal(items.every((item) => PACKING_CATEGORIES.includes(item.category)), true);
+  assert.ok(items.length >= members.length * 42);
 });

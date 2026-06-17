@@ -1,9 +1,9 @@
 ﻿import { EXPENSE_CATEGORIES, normalizeExpenseCategory } from "../features/expense-categories.js?v=20260604-qa-weather-ocr";
 import { buildCategoryPieGradient, summarizeDailySpending } from "../features/expense-dashboard.js";
-import { convertToBaseAmount } from "../features/expenses.js";
+import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses.js";
 import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
 import { calculateSettlement } from "../features/settlement.js";
-import { buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { buildSplitPreview, buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
 import { getAvatarPreset } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
@@ -42,6 +42,7 @@ const T = {
   payer: "\u4ed8\u6b3e\u4eba",
   participants: "\u5206\u5e33\u5c0d\u8c61",
   splitMode: "\u5206\u5e33\u65b9\u5f0f",
+  splitShare: "目前分攤",
   equal: "\u7b49\u5206",
   ratio: "\u6bd4\u4f8b",
   fixed: "\u624b\u52d5\u91d1\u984d",
@@ -109,11 +110,19 @@ export function expensesView(trip, render) {
           render();
         }
       });
-      root.querySelector("[data-expense-form]")?.addEventListener("submit", (event) => {
+      const expenseForm = root.querySelector("[data-expense-form]");
+      if (expenseForm) bindExpenseFormInteractions(expenseForm, trip);
+      expenseForm?.addEventListener("submit", (event) => {
         event.preventDefault();
         const data = formToObject(event.currentTarget);
         const participantIds = [...root.querySelectorAll("[name='participantIds']:checked")].map((input) => input.value);
-        const splitValues = buildSplitValues(participantIds, data.splitMode, readSplitValuesFromForm(event.currentTarget), Number(data.totalBase || 0));
+        const exchangeRate = Number(data.exchangeRate || trip.exchangeRate || 1);
+        const enteredBase = parseFiniteNumber(data.totalBase);
+        const enteredOriginal = parseFiniteNumber(data.totalOriginal);
+        const totalBase = enteredBase ?? (enteredOriginal !== null ? convertToBaseAmount(enteredOriginal, exchangeRate) : 0);
+        const totalOriginal = enteredOriginal ?? (enteredBase !== null ? convertFromBaseAmount(enteredBase, exchangeRate) : 0);
+        const splitValues = buildSplitValues(participantIds, data.splitMode, readSplitValuesFromForm(event.currentTarget), totalBase);
+        const entry = state.modal?.mode === "edit" ? trip.expenseItems.find((item) => item.id === state.modal.id) : null;
         const item = {
           id: state.modal?.mode === "edit" ? state.modal.id : crypto.randomUUID(),
           receiptBatchId: entry?.receiptBatchId ?? null,
@@ -122,11 +131,11 @@ export function expensesView(trip, render) {
           translatedName: data.translatedName,
           category: normalizeExpenseCategory(data.category),
           quantity: 1,
-          unitPriceOriginal: Number(data.totalOriginal || data.totalBase || 0),
-          totalOriginal: Number(data.totalOriginal || data.totalBase || 0),
+          unitPriceOriginal: totalOriginal,
+          totalOriginal,
           currency: data.currency || trip.tripCurrency,
-          exchangeRate: Number(data.exchangeRate || trip.exchangeRate || 1),
-          totalBase: Number(data.totalBase || convertToBaseAmount(data.totalOriginal, data.exchangeRate || trip.exchangeRate)),
+          exchangeRate,
+          totalBase,
           payerId: data.payerId,
           participantIds,
           splitMode: data.splitMode || "equal",
@@ -253,6 +262,7 @@ function renderExpenseSheet(trip, activeDate) {
   if (state.modal?.type !== "expense") return "";
   const entry = state.modal.mode === "edit" ? trip.expenseItems.find((item) => item.id === state.modal.id) : null;
   const participants = new Set(entry?.participantIds || trip.members.map((member) => member.id));
+  const splitMode = entry?.splitMode || "equal";
   return `
     <div class="sheet-backdrop">
       <section class="bottom-sheet">
@@ -260,17 +270,109 @@ function renderExpenseSheet(trip, activeDate) {
         <form class="form-grid" data-expense-form>
           <div class="field"><label>${T.item}</label><input class="input" name="translatedName" value="${escapeHtml(entry?.translatedName || "")}" required /></div>
           <div class="form-row"><div class="field"><label>${T.category}</label><select class="select" name="category">${EXPENSE_CATEGORIES.map((cat) => `<option value="${cat}" ${entry?.category === cat ? "selected" : ""}>${cat}</option>`).join("")}</select></div><div class="field"><label>${T.date}</label><input class="input" type="date" name="expenseDate" value="${escapeHtml(entry?.expenseDate || activeDate)}" /></div></div>
-          <div class="form-row"><div class="field"><label>${T.originalAmount}</label><input class="input" name="totalOriginal" inputmode="decimal" value="${escapeHtml(entry?.totalOriginal || "")}" /></div><div class="field"><label>${T.baseAmount}</label><input class="input" name="totalBase" inputmode="decimal" value="${escapeHtml(entry?.totalBase || "")}" required /></div></div>
-          <div class="form-row"><div class="field"><label>${T.currency}</label><input class="input" name="currency" value="${escapeHtml(entry?.currency || trip.tripCurrency)}" /></div><div class="field"><label>${T.rate}</label><input class="input" name="exchangeRate" inputmode="decimal" value="${escapeHtml(entry?.exchangeRate || trip.exchangeRate)}" /></div></div>
+          <div class="form-row"><div class="field"><label>${T.originalAmount}</label><input class="input" name="totalOriginal" inputmode="decimal" value="${escapeHtml(entry?.totalOriginal || "")}" data-amount-original /></div><div class="field"><label>${T.baseAmount}</label><input class="input" name="totalBase" inputmode="decimal" value="${escapeHtml(entry?.totalBase || "")}" data-amount-base /></div></div>
+          <div class="form-row"><div class="field"><label>${T.currency}</label><input class="input" name="currency" value="${escapeHtml(entry?.currency || trip.tripCurrency)}" /></div><div class="field"><label>${T.rate}</label><input class="input" name="exchangeRate" inputmode="decimal" value="${escapeHtml(entry?.exchangeRate || trip.exchangeRate)}" data-amount-rate /></div></div>
           <div class="field"><label>${T.payer}</label><select class="select" name="payerId">${trip.members.map((member) => `<option value="${member.id}" ${entry?.payerId === member.id ? "selected" : ""}>${escapeHtml(member.name)}</option>`).join("")}</select></div>
           <div class="field"><label>${T.participants}</label><div class="meta-row">${trip.members.map((member) => `<label class="member-chip"><input type="checkbox" name="participantIds" value="${member.id}" ${participants.has(member.id) ? "checked" : ""} />${escapeHtml(member.name)}</label>`).join("")}</div></div>
-          <div class="field"><label>${T.splitMode}</label><select class="select" name="splitMode"><option value="equal">${T.equal}</option><option value="ratio" ${entry?.splitMode === "ratio" ? "selected" : ""}>${T.ratio}</option><option value="fixed" ${entry?.splitMode === "fixed" ? "selected" : ""}>${T.fixed}</option></select></div>
-          <div class="split-value-grid">${trip.members.map((member) => `<label class="split-value-row"><span>${escapeHtml(member.name)}</span><input class="input" data-split-value="${member.id}" value="${escapeHtml(entry?.splitValues?.[member.id] ?? "")}" /></label>`).join("")}</div>
+          <div class="field"><label>${T.splitMode}</label><select class="select" name="splitMode" data-split-mode><option value="equal">${T.equal}</option><option value="ratio" ${splitMode === "ratio" ? "selected" : ""}>${T.ratio}</option><option value="fixed" ${splitMode === "fixed" ? "selected" : ""}>${T.fixed}</option></select></div>
+          ${renderSplitControls(trip, participants, splitMode, entry?.splitValues)}
           <button class="button primary full" type="submit">${T.save}</button>
         </form>
       </section>
     </div>
   `;
+}
+
+function renderSplitControls(trip, participants, mode, splitValues = {}) {
+  const participantIds = trip.members.filter((member) => participants.has(member.id)).map((member) => member.id);
+  const preview = buildSplitPreview(participantIds, mode, splitValues);
+  return `
+    <div class="split-value-grid" data-split-controls>
+      ${trip.members.map((member) => {
+        const isIncluded = participants.has(member.id);
+        const value = splitValues?.[member.id] ?? (mode === "ratio" && isIncluded ? 1 : "");
+        const percent = isIncluded ? `${preview[member.id] || 0}%` : "不分帳";
+        return `
+          <label class="split-value-row ${isIncluded ? "" : "is-disabled"}" data-split-row data-split-member="${member.id}">
+            <span>${escapeHtml(member.name)}<em data-split-percent>${percent}</em></span>
+            <input class="input split-value-input" data-split-value="${member.id}" value="${escapeHtml(value)}" ${isIncluded && mode !== "equal" ? "" : "disabled"} />
+          </label>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function bindExpenseFormInteractions(form, trip) {
+  const originalInput = form.querySelector("[data-amount-original]");
+  const baseInput = form.querySelector("[data-amount-base]");
+  const rateInput = form.querySelector("[data-amount-rate]");
+  let lastAmountSource = originalInput?.value ? "original" : "base";
+
+  const syncAmounts = (source) => {
+    if (!originalInput || !baseInput || !rateInput) return;
+    lastAmountSource = source;
+    const rate = Number(rateInput.value || trip.exchangeRate || 1);
+    if (source === "original") {
+      baseInput.value = originalInput.value.trim() ? convertToBaseAmount(originalInput.value, rate) : "";
+    } else {
+      originalInput.value = baseInput.value.trim() ? convertFromBaseAmount(baseInput.value, rate) : "";
+    }
+  };
+
+  originalInput?.addEventListener("input", () => syncAmounts("original"));
+  baseInput?.addEventListener("input", () => syncAmounts("base"));
+  rateInput?.addEventListener("input", () => syncAmounts(lastAmountSource));
+
+  const refreshSplitControls = () => {
+    const mode = form.querySelector("[data-split-mode]")?.value || "equal";
+    const participantIds = [...form.querySelectorAll("[name='participantIds']:checked")].map((input) => input.value);
+    const rawValues = readSplitValuesFromForm(form);
+    const preview = buildSplitPreview(participantIds, mode, rawValues);
+    const participantSet = new Set(participantIds);
+
+    form.querySelectorAll("[data-split-row]").forEach((row) => {
+      const memberId = row.dataset.splitMember;
+      const input = row.querySelector("[data-split-value]");
+      const percent = row.querySelector("[data-split-percent]");
+      const isIncluded = participantSet.has(memberId);
+      row.classList.toggle("is-disabled", !isIncluded);
+      if (percent) percent.textContent = isIncluded ? `${preview[memberId] || 0}%` : "不分帳";
+      if (!input) return;
+
+      input.disabled = !isIncluded || mode === "equal";
+      input.classList.toggle("is-range", mode === "ratio");
+      if (mode === "ratio") {
+        input.type = "range";
+        input.min = "0";
+        input.max = "10";
+        input.step = "1";
+        if (isIncluded && !input.value) input.value = "1";
+      } else {
+        input.type = "text";
+        input.removeAttribute("min");
+        input.removeAttribute("max");
+        input.removeAttribute("step");
+        input.inputMode = "decimal";
+        if (mode === "equal") input.value = "";
+      }
+    });
+  };
+
+  form.addEventListener("input", (event) => {
+    if (event.target.matches("[data-split-value], [data-split-mode]")) refreshSplitControls();
+  });
+  form.addEventListener("change", (event) => {
+    if (event.target.matches("[name='participantIds'], [data-split-mode], [data-split-value]")) refreshSplitControls();
+  });
+  refreshSplitControls();
+}
+
+function parseFiniteNumber(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const number = Number(text);
+  return Number.isFinite(number) ? number : null;
 }
 
 function memberOf(trip, memberId) {

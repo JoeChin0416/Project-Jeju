@@ -55,10 +55,21 @@ export async function recognizeReceiptImage(file, trip) {
 }
 
 export async function translateImage(file) {
+  const layout = await translateImageLayout(file);
+  if (layout.translations?.length) {
+    return layout.translations.map((entry) => entry.translatedText).join("\n");
+  }
+  return layout.summary || "No translatable text was detected.";
+}
+
+export async function translateImageLayout(file) {
   const key = getAiKey();
   if (!key) {
     await pause(450);
-    return "\u5c1a\u672a\u8a2d\u5b9a AI API Key\u3002";
+    return {
+      summary: "\u5c1a\u672a\u8a2d\u5b9a AI API Key\u3002",
+      translations: [],
+    };
   }
 
   const dataUrl = await fileToDataUrl(file);
@@ -67,14 +78,15 @@ export async function translateImage(file) {
     contents: [
       {
         parts: [
-          { text: "Translate all visible image text into Traditional Chinese. Return concise plain text." },
+          { text: buildTranslationLayoutPrompt() },
           { inlineData: { mimeType: file.type || "image/jpeg", data: base64 } },
         ],
       },
     ],
+    generationConfig: { responseMimeType: "application/json" },
   });
 
-  return extractGeminiText(json) || "No translatable text was detected.";
+  return parseGeminiTranslationLayoutText(extractGeminiText(json) || "{}");
 }
 
 export function buildReceiptPrompt(defaultCurrency = "KRW") {
@@ -108,6 +120,56 @@ export function parseGeminiReceiptText(text, fallbackCurrency = "KRW") {
   } catch {
     throw new Error("AI returned a format that could not be parsed. Please edit the receipt manually or retry with a clearer photo.");
   }
+}
+
+export function parseGeminiTranslationLayoutText(text) {
+  const parsed = JSON.parse(extractJsonText(text));
+  const translations = Array.isArray(parsed.translations) ? parsed.translations : [];
+  return {
+    summary: String(parsed.summary || parsed.title || "").trim(),
+    translations: translations
+      .map(normalizeTranslationEntry)
+      .filter((entry) => entry.translatedText && entry.box.width > 0 && entry.box.height > 0),
+  };
+}
+
+function buildTranslationLayoutPrompt() {
+  return [
+    "You are an image text translator for a travel mobile web app.",
+    "Return strict JSON only. Do not include Markdown or explanations.",
+    "Translate visible text into Traditional Chinese.",
+    "Preserve the spatial layout by returning one bounding box for each translated text block.",
+    "Use normalized image coordinates from 0 to 1000 for x, y, width, and height.",
+    "Group nearby words into useful blocks such as menu item, sign label, warning line, or price row.",
+    "If a box is uncertain, approximate it; keep it near the original text position.",
+    "Required JSON schema:",
+    "{",
+    '  "summary": "short Traditional Chinese summary",',
+    '  "translations": [',
+    '    { "originalText": "source text", "translatedTextZhTw": "繁體中文", "box": { "x": 0, "y": 0, "width": 100, "height": 40 } }',
+    "  ]",
+    "}",
+  ].join("\n");
+}
+
+function normalizeTranslationEntry(entry) {
+  const box = entry?.box || entry || {};
+  return {
+    originalText: String(entry?.originalText || entry?.sourceText || "").trim(),
+    translatedText: String(entry?.translatedTextZhTw || entry?.translatedText || entry?.zhTw || "").trim(),
+    box: {
+      x: clampLayoutNumber(box.x),
+      y: clampLayoutNumber(box.y),
+      width: clampLayoutNumber(box.width),
+      height: clampLayoutNumber(box.height),
+    },
+  };
+}
+
+function clampLayoutNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(1000, Math.round(number)));
 }
 
 async function callGemini(key, body) {

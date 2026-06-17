@@ -25,18 +25,40 @@ export function estimateTravelMinutes(distanceKm, mode = "driving") {
 }
 
 export function getSegmentEstimate(from, to, mode = "driving") {
+  const manual = getManualSegmentEstimate(from, mode);
+  if (manual) return manual;
   if (!hasCoordinates(from) || !hasCoordinates(to)) return null;
+
   const distanceKm = haversineKm(from, to);
   return {
     distanceKm: Math.round(distanceKm * 10) / 10,
     minutes: estimateTravelMinutes(distanceKm, mode),
     mode,
+    source: "coordinates",
   };
 }
 
 export function formatSegmentEstimate(estimate) {
   if (!estimate) return "未設定距離";
-  return `${estimate.distanceKm} km / 約 ${estimate.minutes} 分`;
+  const distance = Number.isFinite(Number(estimate.distanceKm)) ? `${estimate.distanceKm} km` : "距離待補";
+  const minutes = Number.isFinite(Number(estimate.minutes)) ? `約 ${estimate.minutes} 分` : "時間待補";
+  return `${distance} / ${minutes}`;
+}
+
+function getManualSegmentEstimate(place, mode) {
+  const distanceKm = Number(place?.manualDistanceKmToNext);
+  const minutes = Number(place?.manualMinutesToNext);
+  const hasDistance = Number.isFinite(distanceKm) && distanceKm > 0;
+  const hasMinutes = Number.isFinite(minutes) && minutes > 0;
+  if (!hasDistance && !hasMinutes) return null;
+
+  const resolvedDistance = hasDistance ? Math.round(distanceKm * 10) / 10 : null;
+  return {
+    distanceKm: resolvedDistance,
+    minutes: hasMinutes ? Math.round(minutes) : estimateTravelMinutes(resolvedDistance, mode),
+    mode,
+    source: "manual",
+  };
 }
 
 function hasCoordinates(place) {

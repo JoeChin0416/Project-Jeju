@@ -20,6 +20,27 @@ export function buildSplitValues(participantIds, mode, rawValues = {}, total = 0
   return {};
 }
 
+export function buildSplitPreview(participantIds, mode = "equal", rawValues = {}) {
+  const ids = [...new Set(participantIds ?? [])];
+  if (ids.length === 0) return {};
+
+  if (mode === "ratio") {
+    const weights = Object.fromEntries(ids.map((id) => [id, Math.max(0, Number(rawValues[id] || 0))]));
+    const totalWeight = Object.values(weights).reduce((sum, value) => sum + value, 0);
+    const fallbackWeight = totalWeight > 0 ? totalWeight : ids.length;
+    return Object.fromEntries(ids.map((id) => [id, roundPercent(((weights[id] || (totalWeight > 0 ? 0 : 1)) / fallbackWeight) * 100)]));
+  }
+
+  if (mode === "fixed") {
+    const values = Object.fromEntries(ids.map((id) => [id, Math.max(0, Number(rawValues[id] || 0))]));
+    const total = Object.values(values).reduce((sum, value) => sum + value, 0);
+    if (total > 0) return Object.fromEntries(ids.map((id) => [id, roundPercent((values[id] / total) * 100)]));
+  }
+
+  const share = roundPercent(100 / ids.length);
+  return Object.fromEntries(ids.map((id) => [id, share]));
+}
+
 export function readSplitValuesFromForm(form) {
   return [...form.querySelectorAll("[data-split-value]")]
     .reduce((values, input) => {
@@ -30,5 +51,9 @@ export function readSplitValuesFromForm(form) {
 
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function roundPercent(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
 }
 
