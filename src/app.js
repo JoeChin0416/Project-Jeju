@@ -1,5 +1,6 @@
 ﻿import { getInitialUser, signInWithEmail, signInWithGoogle, signOutUser } from "./services/auth.js?v=20260604-qa-weather-ocr";
-import { checkGoogleAccess, loadAccessSettings } from "./services/access-control.js?v=20260604-qa-weather-ocr";
+import { checkUserAccess, loadAccessSettings } from "./services/access-control.js?v=20260604-qa-weather-ocr";
+import { findMemberForUser } from "./features/members.js";
 import { hasFirebaseConfig, initializeFirebaseRuntime } from "./services/firebase.js";
 import { getActiveTrip, readTabFromHash, setActiveTab, setState, state } from "./state/app-state.js";
 import {
@@ -91,15 +92,19 @@ function render() {
     return;
   }
 
+  if (state.user && !findMemberForUser(trip.members, state.user) && state.activeTab !== "settings") {
+    state.activeTab = "settings";
+    if (location.hash !== "#/settings") history.replaceState(null, "", "#/settings");
+    if (!state.notice) state.notice = "請先建立你的旅伴角色。";
+  }
+
   const view = getView(trip);
   app.innerHTML = `
     <main class="app-shell">
       <div class="app-frame">
         <header class="topbar">
           <div class="brand-block">
-            <span class="brand-mark"><span class="brand-dot"></span>Project Jeju</span>
             <h1 class="trip-title">${escapeHtml(trip.name || text.newTrip)}</h1>
-            <p class="trip-subtitle">${escapeHtml(headerSummary(trip))} · ${state.user.mode === "demo" ? "Demo" : "Firebase"}</p>
           </div>
           <button class="icon-button ${state.activeTab === "settings" ? "is-active" : ""}" title="${text.settings}" data-open-settings>${icon("settings")}</button>
         </header>
@@ -196,7 +201,7 @@ async function createSession(user) {
   if (!user) return { user: null, store: null, accessSettings: null, error: "", notice: "" };
 
   const accessSettings = await loadAccessSettings(user);
-  const access = checkGoogleAccess(user, accessSettings);
+  const access = checkUserAccess(user, accessSettings);
   if (!access.allowed) {
     await signOutUser();
     return { user: null, store: null, accessSettings, error: access.reason, notice: "" };
@@ -254,12 +259,6 @@ function icon(name) {
     settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Z"/><path d="M4.9 14.1a7.7 7.7 0 0 1 0-4.2l-1.7-1.3 2-3.4 2.1.8a7.9 7.9 0 0 1 3.6-2.1L11.2 2h3.6l.3 1.9A7.9 7.9 0 0 1 18.7 6l2.1-.8 2 3.4-1.7 1.3a7.7 7.7 0 0 1 0 4.2l1.7 1.3-2 3.4-2.1-.8a7.9 7.9 0 0 1-3.6 2.1l-.3 1.9h-3.6l-.3-1.9A7.9 7.9 0 0 1 7.3 18l-2.1.8-2-3.4 1.7-1.3Z"/></svg>`,
   };
   return icons[name] || "";
-}
-
-function headerSummary(trip) {
-  const destination = trip.destination || text.destinationUnset;
-  const dates = trip.startDate && trip.endDate ? `${trip.startDate} - ${trip.endDate}` : text.dateUnset;
-  return `${destination} · ${dates} · ${trip.baseCurrency}`;
 }
 
 function loadingShell() {

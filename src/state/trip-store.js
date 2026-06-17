@@ -2,6 +2,7 @@
 import { normalizeTravelNotes } from "../features/journal.js?v=20260604-qa-weather-ocr";
 import { PACKING_CATEGORIES, createDefaultPackingItems, createPersonalPackingItems } from "../features/packing.js?v=20260604-qa-weather-ocr";
 import { createRentalChecklist, normalizeRentalChecklist } from "../features/rental-checklist.js";
+import { isDefaultPlaceholderMemberSet } from "../features/members.js";
 import {
   ensureUserProfile,
   readPersonalPacking,
@@ -131,11 +132,12 @@ function normalizeStore(store) {
   if (!store || store.schemaVersion !== SHARED_SCHEMA_VERSION) return createSeedStore();
 
   store.trips = (store.trips ?? []).map((trip) => {
-    const members = (trip.members ?? []).map(normalizeMember).map(ensureMemberAvatar);
+    const hasPlaceholderMembers = isDefaultPlaceholderMemberSet(trip.members ?? []);
+    const members = hasPlaceholderMembers ? [] : (trip.members ?? []).map(normalizeMember).map(ensureMemberAvatar);
     const migratedTrip = {
       ...trip,
       members,
-      expenseItems: normalizeExpenses(trip.expenseItems ?? [], trip),
+      expenseItems: hasPlaceholderMembers ? [] : normalizeExpenses(trip.expenseItems ?? [], trip),
       receiptBatches: trip.receiptBatches ?? [],
       lodgings: trip.lodgings ?? [],
       transportItems: normalizeTransportItems(trip.transportItems ?? []),
@@ -236,13 +238,7 @@ function findReceiptDate(trip, receiptBatchId) {
 
 function createSeedStore() {
   const tripId = "jeju-demo";
-  const members = [
-    { id: "m-a", name: "A", color: "#116b63", sortOrder: 1, active: true },
-    { id: "m-b", name: "B", color: "#ee6b4d", sortOrder: 2, active: true },
-    { id: "m-c", name: "C", color: "#3167b7", sortOrder: 3, active: true },
-    { id: "m-d", name: "D", color: "#d99716", sortOrder: 4, active: true },
-    { id: "m-e", name: "E", color: "#8a63d2", sortOrder: 5, active: true },
-  ].map((member, index) => ensureMemberAvatar(member, index));
+  const members = [];
 
   return {
     schemaVersion: SHARED_SCHEMA_VERSION,
@@ -360,29 +356,7 @@ function createSeedStore() {
         ],
         packingItems: createPersonalPackingItems("demo-user"),
         receiptBatches: [],
-        expenseItems: [
-          {
-            id: "e1",
-            receiptBatchId: null,
-            source: "manual",
-            originalName: "\u6a5f\u5834\u5c0f\u5403",
-            translatedName: "\u6a5f\u5834\u5c0f\u5403",
-            category: "\u9910\u98f2",
-            quantity: 1,
-            unitPriceOriginal: 15000,
-            totalOriginal: 15000,
-            currency: "KRW",
-            exchangeRate: 0.024,
-            totalBase: 360,
-            payerId: "m-a",
-            participantIds: ["m-a", "m-b", "m-c", "m-d", "m-e"],
-            splitMode: "equal",
-            splitValues: {},
-            expenseDate: "2026-06-21",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ],
+        expenseItems: [],
         travelNotes: [
           {
             id: "j1",

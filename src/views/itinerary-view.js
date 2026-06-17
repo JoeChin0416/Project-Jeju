@@ -154,7 +154,6 @@ export function itineraryView(trip, render) {
         <div>
           <span class="brand-mark"><span class="brand-dot"></span>${escapeHtml(trip.destination || T.destinationFallback)}</span>
           <h1>${escapeHtml(trip.name || T.tripFallback)}</h1>
-          <p>${escapeHtml(trip.startDate)} - ${escapeHtml(trip.endDate)} ・ ${trip.members.length} ${T.member}</p>
         </div>
         <div class="itinerary-hero-stats">
           <div><strong>${days.length}</strong><span>${T.days}</span></div>

@@ -231,6 +231,69 @@
   border-radius: var(--radius-md);
 }
 
+.member-role-form {
+  margin-bottom: 12px;
+}
+
+.member-role-list {
+  margin: 12px 0;
+}
+
+.member-role-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  overflow: hidden;
+  padding-left: 18px;
+}
+
+.member-color-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: var(--member-color, var(--teal));
+}
+
+.member-role-copy {
+  min-width: 0;
+}
+
+.member-role-copy h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.member-role-copy h3 small {
+  padding: 2px 7px;
+  color: var(--teal-strong);
+  background: rgba(17, 107, 99, 0.09);
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.member-role-copy p,
+.member-role-copy small {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.member-role-copy p {
+  margin: 6px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.member-role-copy > small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .fab {
   position: fixed;
   right: max(18px, calc((100vw - 480px) / 2 + 18px));
@@ -303,4 +366,11 @@
   height: 9px;
   border-radius: 999px;
   background: var(--teal);
+}
+
+@media (max-width: 420px) {
+  .form-row,
+  .member-role-card {
+    grid-template-columns: 1fr;
+  }
 }

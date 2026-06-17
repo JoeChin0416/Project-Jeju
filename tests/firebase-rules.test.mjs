@@ -19,6 +19,7 @@ import {
 import { readFile } from "node:fs/promises";
 
 const projectId = "jeju-travel-f136b";
+const ownerEmail = "dpluschin0416@gmail.com";
 const sharedPath = "sharedTrips/jeju-2026-girls/stores/default";
 const accessPath = "sharedTrips/jeju-2026-girls/access/default";
 let testEnv;
@@ -35,7 +36,11 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), accessPath), {
-      settings: { googleWhitelist: ["friend@gmail.com"] },
+      settings: {
+        googleWhitelist: ["friend@gmail.com"],
+        memberEmails: ["member@example.com"],
+        adminEmails: [ownerEmail],
+      },
     });
   });
 });
@@ -51,6 +56,13 @@ function passwordUser(uid = "admin") {
   });
 }
 
+function ownerUser() {
+  return testEnv.authenticatedContext("owner", {
+    email: ownerEmail,
+    firebase: { sign_in_provider: "google.com" },
+  });
+}
+
 function googleUser(uid, email) {
   return testEnv.authenticatedContext(uid, {
     email,
@@ -58,9 +70,10 @@ function googleUser(uid, email) {
   });
 }
 
-test("shared trip is denied to guests and unlisted Google users", async () => {
+test("shared trip is denied to guests and unlisted users", async () => {
   await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), sharedPath)));
   await assertFails(getDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), sharedPath)));
+  await assertFails(getDoc(doc(passwordUser("stranger").firestore(), sharedPath)));
 });
 
 test("Google access fails closed until settings exist and while whitelist is empty", async () => {
@@ -69,14 +82,25 @@ test("Google access fails closed until settings exist and while whitelist is emp
   });
   await assertFails(getDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), sharedPath)));
 
-  await assertSucceeds(setDoc(doc(passwordUser().firestore(), accessPath), {
-    settings: { googleWhitelist: [] },
+  await assertSucceeds(setDoc(doc(ownerUser().firestore(), accessPath), {
+    settings: { googleWhitelist: [], memberEmails: [], adminEmails: [ownerEmail] },
   }));
   await assertFails(getDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), sharedPath)));
 });
 
-test("password users and whitelisted Google users share itinerary accounting and journal updates in real time", async () => {
-  const writer = passwordUser("writer").firestore();
+test("legacy access settings that only contain Google whitelist remain readable by whitelisted Google users", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), accessPath), {
+      settings: { googleWhitelist: ["friend@gmail.com"] },
+    });
+  });
+
+  await assertSucceeds(getDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), sharedPath)));
+  await assertFails(getDoc(doc(passwordUser("member").firestore(), sharedPath)));
+});
+
+test("password members and whitelisted Google users share itinerary accounting and journal updates in real time", async () => {
+  const writer = passwordUser("member").firestore();
   const reader = googleUser("friend", "friend@gmail.com").firestore();
   const sharedRef = doc(writer, sharedPath);
   await assertSucceeds(setDoc(sharedRef, { store: { revision: 1, trips: [] } }));
@@ -119,14 +143,21 @@ test("personal packing can only be read and written by its owner", async () => {
   await assertFails(getDoc(doc(passwordUser("user-b").firestore(), ownerPath)));
 });
 
-test("only password users can manage the Google whitelist", async () => {
-  await assertSucceeds(setDoc(doc(passwordUser().firestore(), accessPath), { settings: { googleWhitelist: [] } }));
-  await assertFails(setDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath), { settings: { googleWhitelist: [] } }));
+test("only allowed trip users can manage access settings", async () => {
+  await assertSucceeds(setDoc(doc(ownerUser().firestore(), accessPath), {
+    settings: { googleWhitelist: ["friend@gmail.com"], memberEmails: ["member@example.com"], adminEmails: [ownerEmail] },
+  }));
+  await assertSucceeds(setDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath), {
+    settings: { googleWhitelist: ["friend@gmail.com"], memberEmails: ["friend@gmail.com"], adminEmails: [ownerEmail] },
+  }));
+  await assertFails(setDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), accessPath), {
+    settings: { googleWhitelist: ["stranger@gmail.com"], memberEmails: ["stranger@gmail.com"], adminEmails: [ownerEmail] },
+  }));
 });
 
 test("storage accepts shared trip images from allowed users only", async () => {
   const image = new Uint8Array([255, 216, 255, 217]);
-  const allowedRef = ref(passwordUser("writer").storage(), "trips/jeju/parking/car-1/photo.jpg");
+  const allowedRef = ref(passwordUser("member").storage(), "trips/jeju/parking/car-1/photo.jpg");
   const allowedGoogleRef = ref(googleUser("friend", "friend@gmail.com").storage(), "trips/jeju/parking/car-1/friend.jpg");
   const blockedRef = ref(googleUser("stranger", "stranger@gmail.com").storage(), "trips/jeju/parking/car-1/blocked.jpg");
   const invalidRef = ref(passwordUser("writer").storage(), "trips/jeju/parking/car-1/file.txt");

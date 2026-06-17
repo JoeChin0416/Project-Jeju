@@ -1,87 +1,71 @@
-# GitHub Pages 部署說明
+# GitHub Pages 部署筆記
 
-專案使用 Vite 建置，`vite.config.js` 已支援部署到 GitHub Pages 子路徑。
+本專案是 Vite 靜態 SPA，可部署到 GitHub Pages。`vite.config.js` 已設定 GitHub Pages 專案路徑。
 
-## 1. 先完成 Firebase 設定
+## 1. Firebase 上線前檢查
 
-依照 [Firebase 專案切換說明](./FIREBASE_PROJECT_SWITCH.md)：
+先完成 [Firebase 專案切換筆記](./FIREBASE_PROJECT_SWITCH.md)：
 
-1. 啟用 Email/Password 與 Google 登入。
-2. 建立 Firestore Database 與 Storage。
-3. 部署 Firestore 與 Storage 安全規則。
-4. 使用 Email/Password 帳號完成首次登入。
-5. 在 Google Cloud Identity Platform 設定中停用終端使用者建立與刪除帳號，只允許管理者建立 Email/Password 帳號。
+1. 啟用 Authentication 的 Email/Password 與 Google 登入。
+2. 建立 Firestore Database 與 Firebase Storage。
+3. 部署 `firestore.rules` 與 `storage.rules`。
+4. 在 App 設定頁建立旅伴角色、Google 白名單與每日預算。
+5. 不要停用 Firebase Auth 的終端使用者建立帳號；Google 第一次登入需要建立 Auth 使用者，實際資料權限由 Firestore/Storage Rules 控管。
 
-公開網站一定要完成第 5 步。Firebase Email/Password 預設允許終端使用者自行註冊，即使 App 沒有顯示註冊按鈕，仍可能透過公開 API 建立帳號。
+公開網站後，即使有人透過公開 API 建立 Password 帳號，只要該 Email 不在 `adminEmails` 或 `memberEmails`，就不能讀寫共用旅行資料。
 
-## 2. 公開 Repository 前清理
+## 2. Repository 安全檢查
 
-不應提交或公開：
+不要提交下列內容：
 
-- `.omx/` 執行紀錄與本機狀態
-- `.env`、`.env.local` 與任何 AI API Key
-- `guam-trip/` 設計參考專案與其 Firebase 設定
-- 本機測試截圖、分析 HTML 與建置產物
+- `.env`、`.env.local` 或任何 Gemini/OpenAI API Key。
+- Firebase Admin SDK service account JSON。
+- 個人下載資料、測試截圖或不需要部署的原型資料夾。
+- `.omx/`、臨時報告、分析輸出或本機快取。
 
-如果這些檔案曾存在於 Git 歷史中，只新增刪除 commit 不足以移除歷史內容。公開前應重寫尚未公開的歷史，或建立新的乾淨 Repository。
+Firebase Web API Key 可以放在前端；它不是後端密鑰，安全邊界在 Firestore/Storage Rules。
 
-## 3. 建立 GitHub Repository
+## 3. GitHub Pages 設定
 
-目前工作目錄尚未包含 Git metadata 時，可執行：
+到 GitHub Repository：
 
-```powershell
-git init
-git add .
-git commit -m "Prepare the travel app for verified static deployment"
-git branch -M main
-git remote add origin https://github.com/<github-username>/Project-Jeju.git
-git push -u origin main
-```
+1. 進入 `Settings`。
+2. 進入 `Pages`。
+3. `Build and deployment` 的 `Source` 選 `GitHub Actions`。
 
-專案內的 `.github/workflows/deploy-pages.yml` 會在推送到 `main` 後：
+推到 `main` 後，`.github/workflows/deploy-pages.yml` 會：
 
-1. 執行測試。
-2. 執行 Firebase 規則測試。
-3. 建立 production build。
-4. 將 `dist` 部署至 GitHub Pages。
+1. 安裝相依套件。
+2. 建置 Vite production build。
+3. 將 `dist` 發佈到 GitHub Pages。
 
-## 4. 啟用 GitHub Pages
-
-在 GitHub Repository：
-
-1. 開啟 `Settings`。
-2. 選擇 `Pages`。
-3. 在 `Build and deployment` 將 `Source` 設為 `GitHub Actions`。
-
-部署網址通常為：
+部署網址格式：
 
 ```text
 https://<github-username>.github.io/Project-Jeju/
 ```
 
-## 5. 授權 GitHub Pages 網域
+## 4. Firebase Authorized Domains
 
-在 Firebase Console：
+到 Firebase Console：
 
-1. 開啟 `Authentication`。
-2. 開啟 `Settings`。
-3. 找到 `Authorized domains`。
+1. `Authentication`。
+2. `Settings`。
+3. `Authorized domains`。
 4. 新增 `<github-username>.github.io`。
 
-Google 登入使用 Firebase Google Provider，不需要另外將 OAuth Client ID 寫入程式碼。
+若 Google 登入出現 `origin_mismatch`，也要到 Google Cloud Console 的 OAuth Client 補上 JavaScript 來源：
 
-## 6. 部署後檢查
+```text
+http://localhost:5174
+https://<github-username>.github.io
+```
 
-- Email/Password 登入可正常使用。
-- Google 登入可正常跳出帳號選擇並完成登入。
-- 行程、記帳與旅記可由不同成員即時同步。
-- 個人行李只顯示目前登入者的資料。
-- 旅記與停車照片可上傳及預覽。
-- 天氣資訊可正常取得。
-- 手機相機功能在 HTTPS 網址可正常啟動。
+## 5. 上線後驗收
 
-## 安全提醒
-
-- Firebase Web API Key 可以出現在前端，真正的資料權限由 Firestore 與 Storage Rules 保護。
-- Gemini 或其他 AI API Key 不應提交到 GitHub。
-- 不要將 Firebase Admin SDK 私鑰或服務帳戶 JSON 放入 Repository。
+- Email/Password 帳號能登入。
+- Google 白名單 Email 能登入，且第一次登入後可建立旅伴角色。
+- 未在白名單、管理員或旅伴角色內的帳號不能讀寫共用資料。
+- 行程、記帳、旅記為共用同步。
+- 行李清單只顯示該登入帳號自己的資料。
+- Storage 圖片可上傳、預覽，且無權限帳號不能讀取。

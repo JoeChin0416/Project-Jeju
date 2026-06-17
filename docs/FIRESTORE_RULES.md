@@ -1,6 +1,6 @@
-# Firebase 權限與同步
+# Firebase 安全規則
 
-專案根目錄已提供可部署的規則：
+本專案使用下列 Firebase 設定檔：
 
 - `firestore.rules`
 - `storage.rules`
@@ -9,41 +9,76 @@
 
 ## 資料邊界
 
-- `sharedTrips/jeju-2026-girls/stores/default`
-  - 共用行程、住宿交通、成員、記帳、旅記與租車檢查清單。
-  - Email/密碼登入者可以讀寫。
-  - Google 登入者必須在白名單內；白名單存在但為空陣列時，開放所有 Google 登入者。
-- `sharedTrips/jeju-2026-girls/access/default`
-  - Google 登入白名單。
-  - 所有登入者可讀，只有 Email/密碼登入者可修改。
-- `users/{uid}/personalPacking/jeju-2026-girls`
-  - 個人行李清單。
-  - 只有該 `uid` 本人可讀寫。
-- `trips/{tripId}/...`
-  - 旅記、收據與停車照片。
-  - 使用與共用旅行資料相同的登入權限，只接受小於 10 MB 的圖片。
+### 共用旅行資料
 
-## 本機驗證
+```text
+sharedTrips/jeju-2026-girls/stores/default
+```
 
-Firestore Emulator 需要 Java 21。
+行程、住宿、交通、記帳、分帳、旅記等共用資料都在這裡。可讀寫者必須符合下列其中之一：
+
+- 主要管理者：`dpluschin0416@gmail.com`
+- `adminEmails` 內的帳號
+- `memberEmails` 內的旅伴帳號
+- 使用 Google 登入且 Email 在 `googleWhitelist`
+
+未登入、未列入名單的 Google 帳號、未列入 `memberEmails` 的 Password 帳號都不能讀寫。
+
+### 權限設定
+
+```text
+sharedTrips/jeju-2026-girls/access/default
+```
+
+儲存：
+
+- `googleWhitelist`
+- `memberEmails`
+- `adminEmails`
+
+主要管理者可建立權限文件；已允許的旅行使用者可更新權限設定，讓 App 能共同管理旅伴角色與白名單。
+
+### 個人行李
+
+```text
+users/{uid}/personalPacking/jeju-2026-girls
+```
+
+個人行李只允許該 Firebase Auth UID 本人讀寫。
+
+### Storage 圖片
+
+```text
+trips/{tripId}/...
+```
+
+旅記照片、收據照片、停車照片只允許已授權的旅行使用者讀寫。上傳限制：
+
+- 必須是圖片 content type。
+- 檔案小於 10 MB。
+
+## 規則測試
+
+Firestore/Storage Emulator 需要 Java。
 
 ```powershell
 npm run test:rules
 ```
 
-測試會驗證：
+測試重點：
 
-- 未登入者與未列入白名單的 Google 帳號無法讀取共用旅行。
-- Email/密碼登入者與白名單 Google 帳號可即時同步共用資料。
-- 個人行李只能由本人讀寫。
-- Google 白名單只能由 Email/密碼登入者管理。
-- Storage 只接受授權使用者上傳的圖片。
+- 未登入者與未列入名單者無法讀取共用旅行。
+- 白名單 Google 使用者可在建立旅伴角色前登入並讀寫。
+- Password 使用者必須是 owner/admin/member 才能讀寫共用旅行。
+- 個人行李只能本人讀寫。
+- Storage 只接受授權使用者上傳圖片。
 
 ## 部署規則
 
 ```powershell
 npx firebase login
+npx firebase use jeju-travel-f136b
 npx firebase deploy --only firestore:rules,storage
 ```
 
-首次部署使用 Firestore 文件判斷 Storage 權限時，Firebase 可能要求啟用 Storage Rules 存取 Firestore 的權限，依 CLI 或 Console 提示啟用即可。
+Google 登入第一次會建立 Firebase Auth 使用者，所以不要停用 Identity Platform 的終端使用者建立帳號。資料安全由這些 Firestore/Storage Rules 負責。

@@ -12,10 +12,10 @@ test("defines practical default packing categories", () => {
   assert.deepEqual(PACKING_CATEGORIES, [
     "證件票券",
     "盥洗用品",
-    "衣物配件",
-    "電子用品",
+    "衣物穿搭",
+    "美妝保養",
     "藥品保健",
-    "旅行雜物",
+    "拍照小物",
   ]);
 });
 
@@ -28,6 +28,6 @@ test("creates common packing items for each member", () => {
   assert.equal(ownerIds.has("m-b"), true);
   assert.equal(names.has("護照"), true);
   assert.equal(names.has("牙刷牙膏"), true);
-  assert.equal(names.has("行動電源"), true);
+  assert.equal(names.has("彩妝"), true);
   assert.equal(items.every((item) => PACKING_CATEGORIES.includes(item.category)), true);
 });

@@ -25,6 +25,20 @@ test("summarizes daily spending dashboard values", () => {
   assert.equal(summary.budgetDelta, -200);
 });
 
+test("uses the trip daily budget instead of deriving an invisible default", () => {
+  const summary = summarizeDailySpending(
+    {
+      ...trip,
+      dailyBudgetBase: 1200,
+      expenseItems: [{ totalBase: 900, expenseDate: "2026-06-21", category: "餐飲" }],
+    },
+    "2026-06-21",
+  );
+
+  assert.equal(summary.dailyBudgetBase, 1200);
+  assert.equal(summary.budgetDelta, 300);
+});
+
 test("builds a conic gradient for non-empty category totals", () => {
   const summary = summarizeDailySpending(trip, "2026-06-21");
   const gradient = buildCategoryPieGradient(summary.categoryTotals);

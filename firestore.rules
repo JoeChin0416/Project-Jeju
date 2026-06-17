@@ -3,7 +3,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email is string;
+    }
+
+    function signedInEmail() {
+      return request.auth.token.email;
+    }
+
+    function isOwner() {
+      return signedIn() && signedInEmail() == "dpluschin0416@gmail.com";
     }
 
     function isPasswordUser() {
@@ -18,19 +26,38 @@ service cloud.firestore {
       return /databases/$(database)/documents/sharedTrips/jeju-2026-girls/access/default;
     }
 
-    function googleUserIsAllowed() {
-      return isGoogleUser()
-        && exists(accessSettingsDocument())
-        && request.auth.token.email in get(accessSettingsDocument()).data.settings.googleWhitelist;
+    function accessExists() {
+      return exists(accessSettingsDocument());
+    }
+
+    function settings() {
+      return get(accessSettingsDocument()).data.settings;
+    }
+
+    function isAdmin() {
+      return accessExists() && settings().adminEmails is list && signedInEmail() in settings().adminEmails;
+    }
+
+    function isTripMember() {
+      return accessExists() && settings().memberEmails is list && signedInEmail() in settings().memberEmails;
+    }
+
+    function isWhitelistedGoogleUser() {
+      return isGoogleUser() && accessExists() && settings().googleWhitelist is list && signedInEmail() in settings().googleWhitelist;
+    }
+
+    function isAllowedPasswordUser() {
+      return isPasswordUser() && (isOwner() || isAdmin() || isTripMember());
     }
 
     function sharedTripUserIsAllowed() {
-      return isPasswordUser() || googleUserIsAllowed();
+      return isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser();
     }
 
     match /sharedTrips/jeju-2026-girls/access/default {
       allow read: if signedIn();
-      allow create, update, delete: if isPasswordUser();
+      allow create: if isOwner();
+      allow update, delete: if sharedTripUserIsAllowed();
     }
 
     match /sharedTrips/jeju-2026-girls/stores/default {

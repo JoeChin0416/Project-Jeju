@@ -13,7 +13,7 @@ export function packingView(trip, render) {
     html: `
       <section class="panel span-all">
         <div class="section-title">
-          <div><h2>\u500b\u4eba\u884c\u674e\u6e05\u55ae</h2><p>\u884c\u674e\u662f\u6bcf\u500b\u5e33\u865f\u5404\u81ea\u7ba1\u7406\uff1b\u884c\u7a0b\u3001\u8a18\u5e33\u8207\u65c5\u8a18\u5247\u662f\u5171\u540c\u540c\u6b65\u3002</p></div>
+          <div><h2>\u500b\u4eba\u884c\u674e\u6e05\u55ae</h2></div>
           <span class="pill">${checkedCount}/${ownerItems.length}</span>
         </div>
       </section>

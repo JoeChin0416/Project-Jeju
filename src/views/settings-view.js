@@ -1,62 +1,97 @@
-﻿import { clearAiKey, getAiKey, setAiKey, testAiKey } from "../services/ai.js";
 import {
   addGoogleWhitelistEmail,
   canManageAccess,
+  removeAccessEmail,
   removeGoogleWhitelistEmail,
   saveAccessSettings,
+  syncMemberEmails,
 } from "../services/access-control.js?v=20260604-qa-weather-ocr";
+import { clearAiKey, getAiKey, setAiKey, testAiKey } from "../services/ai.js";
 import { hasFirebaseConfig } from "../services/firebase.js";
+import {
+  createManualMember,
+  createMemberForUser,
+  findMemberForUser,
+  isOwnerEmail,
+  isValidEmail,
+  normalizeEmail,
+  removeMemberFromTrip,
+  upsertMember,
+} from "../features/members.js";
 import { setUiStyle, state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
 import { escapeHtml, formToObject } from "../utils/dom.js";
 
 const text = {
-  settings: "\u8a2d\u5b9a",
-  settingsHelp:
-    "\u7ba1\u7406\u767b\u51fa\u3001API Key\u3001\u65c5\u884c\u8cc7\u8a0a\u3001Google \u767b\u5165\u767d\u540d\u55ae\u8207\u4ecb\u9762\u98a8\u683c\u3002",
+  settings: "設定",
+  settingsHelp: "管理登入權限、旅伴角色、旅行資料、AI API Key 與畫面風格。",
   firebase: "Firebase",
-  configured: "\u5df2\u8a2d\u5b9a",
-  demoStore: "\u672a\u8a2d\u5b9a\uff0c\u4f7f\u7528 demo store",
-  localSaved: "\u5df2\u5132\u5b58\u65bc\u672c\u6a5f\u700f\u89bd\u5668",
-  notSet: "\u5c1a\u672a\u8a2d\u5b9a",
-  signOut: "\u767b\u51fa",
-  tripData: "\u65c5\u884c\u8cc7\u6599",
-  tripName: "\u65c5\u884c\u540d\u7a31",
-  destination: "\u76ee\u7684\u5730",
-  start: "\u958b\u59cb",
-  end: "\u7d50\u675f",
-  saveTrip: "\u5132\u5b58\u65c5\u884c\u8cc7\u6599",
-  savedTrip: "\u65c5\u884c\u8cc7\u6599\u5df2\u5132\u5b58\u3002",
-  save: "\u5132\u5b58",
-  clear: "\u6e05\u9664",
-  aiSaved: "AI API Key \u5df2\u5132\u5b58\u3002",
-  aiCleared: "AI API Key \u5df2\u6e05\u9664\u3002",
-  whitelist: "Google \u767d\u540d\u55ae",
-  whitelistHelp:
-    "Email \u767b\u5165\u4e0d\u53d7\u9650\u5236\uff1bGoogle \u767b\u5165\u624d\u6703\u5957\u7528\u767d\u540d\u55ae\u3002",
-  whitelistNoAccess:
-    "\u8acb\u7528 Email \u767b\u5165\u7ba1\u7406 Google \u767d\u540d\u55ae\u3002",
-  addWhitelist: "\u52a0\u5165\u767d\u540d\u55ae",
-  remove: "\u522a\u9664",
-  whitelistEmpty:
-    "\u76ee\u524d\u6c92\u6709\u767d\u540d\u55ae\uff0c\u4ee3\u8868\u6240\u6709 Google \u5e33\u865f\u90fd\u53ef\u4ee5\u767b\u5165\u3002",
-  whitelistUpdated: "\u767d\u540d\u55ae\u5df2\u66f4\u65b0\u3002",
-  uiStyle: "\u4ecb\u9762\u98a8\u683c",
-  styleHelp:
-    "\u98a8\u683c1\u4fdd\u7559\u539f\u672c\u5de5\u5177\u611f\uff1b\u98a8\u683c2\u662f\u97d3\u7cfb\u65c5\u62cd\uff1b\u98a8\u683c3\u662f\u6d77\u5cf6\u7968\u5238\u98a8\u3002\u4e09\u7a2e\u90fd\u4ee5\u7d04 480px \u624b\u6a5f App \u5bec\u5ea6\u70ba\u4e3b\u3002",
-  style1: "\u98a8\u683c1",
-  style1Desc: "\u539f\u672c\u6e05\u723d\u5de5\u5177\u98a8",
-  style2: "\u98a8\u683c2",
-  style2Desc: "\u97d3\u7cfb\u6fdf\u5dde\u65c5\u62cd\u98a8",
-  style3: "\u98a8\u683c3",
-  style3Desc: "\u6d77\u5cf6\u7968\u5238\u98a8",
-  styleChanged: "\u4ecb\u9762\u98a8\u683c\u5df2\u5207\u63db\u3002",
+  configured: "已連線",
+  demoStore: "未設定，使用 demo store",
+  localSaved: "已儲存在本機瀏覽器",
+  notSet: "尚未設定",
+  signOut: "登出",
+  members: "旅伴角色",
+  memberHelp: "記帳付款人、分帳對象與成員支出都會使用這份名單。",
+  roleRequired: "請先建立你的旅伴角色。建立後才會出現在記帳與分帳名單中。",
+  myRole: "我的角色",
+  createMyRole: "建立我的角色",
+  updateMyRole: "更新我的角色",
+  addMember: "新增旅伴",
+  memberName: "名稱",
+  memberEmail: "Email",
+  memberUid: "登入 UID",
+  noMembers: "目前沒有旅伴角色。第一位登入者請先建立自己的角色。",
+  memberSaved: "旅伴角色已儲存。",
+  memberDeleted: "旅伴角色已刪除。",
+  edit: "編輯",
+  deleteAccount: "刪除帳號",
+  cannotDeleteOwner: "主要管理者不能在 App 內刪除。",
+  invalidEmail: "請輸入有效的 Email。",
+  editNamePrompt: "請輸入旅伴名稱",
+  editEmailPrompt: "請輸入 Email",
+  deleteConfirm1: "這會刪除旅伴角色，也會從分帳名單移除。確定要繼續？",
+  deleteConfirm2: "再次確認：這個動作會影響既有記帳的付款人與分帳對象。",
+  deleteTypePrompt: "請輸入旅伴名稱以確認刪除",
+  you: "你",
+  noEmail: "未填 Email",
+  manual: "手動新增",
+  tripData: "旅行資料",
+  tripName: "旅行名稱",
+  destination: "目的地",
+  start: "開始日期",
+  end: "結束日期",
+  dailyBudget: "每日總預算（TWD）",
+  saveTrip: "儲存旅行資料",
+  savedTrip: "旅行資料已儲存。",
+  save: "儲存",
+  clear: "清除",
+  aiSaved: "AI API Key 已儲存。",
+  aiCleared: "AI API Key 已清除。",
+  whitelist: "Google 登入白名單",
+  whitelistHelp: "Google 第一次登入需要先允許 Firebase Auth 建立使用者；實際可否讀寫由這裡與安全規則控管。",
+  whitelistNoAccess: "只有主要管理者或管理員可以修改 Google 白名單。",
+  addWhitelist: "加入白名單",
+  remove: "移除",
+  whitelistEmpty: "目前沒有白名單。主要管理者仍可使用 Google 登入。",
+  whitelistUpdated: "白名單已更新。",
+  uiStyle: "風格樣式",
+  styleHelp: "保留原本風格，並可切換韓系旅行感與海島票券風。",
+  style1: "風格1",
+  style1Desc: "原本清爽工具感",
+  style2: "風格2",
+  style2Desc: "韓系粉色旅行感",
+  style3: "風格3",
+  style3Desc: "海島票券風",
+  styleChanged: "風格已切換。",
 };
 
 export function settingsView(trip, render) {
   const aiKey = getAiKey();
-  const accessSettings = state.accessSettings ?? { googleWhitelist: [] };
-  const accessManageable = canManageAccess(state.user);
+  const accessSettings = state.accessSettings ?? { googleWhitelist: [], memberEmails: [], adminEmails: [] };
+  const accessManageable = canManageAccess(state.user, accessSettings);
+  const currentMember = findMemberForUser(trip.members, state.user);
+
   return {
     html: `
       <section class="panel span-all settings-hero-panel">
@@ -67,6 +102,15 @@ export function settingsView(trip, render) {
           <button class="button ghost full" type="button" data-sign-out-settings>${text.signOut}</button>
         </div>
       </section>
+
+      <section class="panel span-all">
+        <div class="section-title"><div><h2>${text.members}</h2><p>${text.memberHelp}</p></div></div>
+        ${!currentMember ? `<div class="status danger">${text.roleRequired}</div>` : ""}
+        ${renderMyRoleForm(currentMember)}
+        ${renderMemberList(trip, currentMember)}
+        ${renderManualMemberForm()}
+      </section>
+
       <section class="panel span-all">
         <div class="section-title"><div><h2>${text.uiStyle}</h2><p>${text.styleHelp}</p></div></div>
         <div class="style-switcher" role="group" aria-label="${text.uiStyle}">
@@ -75,6 +119,7 @@ export function settingsView(trip, render) {
           ${renderStyleOption("style3", text.style3, text.style3Desc)}
         </div>
       </section>
+
       <section class="panel span-all">
         <div class="section-title"><h2>${text.tripData}</h2></div>
         <form class="form-grid" data-trip-form>
@@ -84,9 +129,11 @@ export function settingsView(trip, render) {
             <div class="field"><label>${text.start}</label><input class="input" type="date" name="startDate" value="${escapeHtml(trip.startDate)}" /></div>
             <div class="field"><label>${text.end}</label><input class="input" type="date" name="endDate" value="${escapeHtml(trip.endDate)}" /></div>
           </div>
-          <button class="button primary full">${text.saveTrip}</button>
+          <div class="field"><label>${text.dailyBudget}</label><input class="input" name="dailyBudgetBase" inputmode="decimal" value="${escapeHtml(trip.dailyBudgetBase || "")}" /></div>
+          <button class="button primary full" type="submit">${text.saveTrip}</button>
         </form>
       </section>
+
       <section class="panel span-all">
         <div class="section-title"><h2>AI API Key</h2></div>
         <form class="form-grid" data-ai-key-form>
@@ -94,6 +141,7 @@ export function settingsView(trip, render) {
           <div class="form-row"><button class="button primary" type="submit">${text.save}</button><button class="button ghost" type="button" data-clear-ai-key>${text.clear}</button></div>
         </form>
       </section>
+
       <section class="panel span-all">
         <div class="section-title"><div><h2>${text.whitelist}</h2><p>${text.whitelistHelp}</p></div></div>
         ${accessManageable ? renderWhitelist(accessSettings) : `<div class="status">${text.whitelistNoAccess}</div>`}
@@ -107,13 +155,48 @@ export function settingsView(trip, render) {
           render();
         });
       });
+
       root.querySelector("[data-trip-form]")?.addEventListener("submit", (event) => {
         event.preventDefault();
         const data = formToObject(event.currentTarget);
-        state.store = updateActiveTrip(state.store, (draft) => ({ ...draft, ...data }));
+        state.store = updateActiveTrip(state.store, (draft) => ({
+          ...draft,
+          ...data,
+          dailyBudgetBase: Number(data.dailyBudgetBase || 0),
+        }));
         state.notice = text.savedTrip;
         render();
       });
+
+      root.querySelector("[data-my-role-form]")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const data = formToObject(event.currentTarget);
+        await runMemberUpdate(render, async () => saveMemberUpdate({
+          accessSettings,
+          updater(draft) {
+            const nextMember = createMemberForUser(state.user, { ...currentMember, name: data.name }, draft.members.length);
+            draft.members = upsertMember(draft.members, nextMember);
+            return draft.members;
+          },
+        }));
+      });
+
+      root.querySelector("[data-manual-member-form]")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const data = formToObject(event.currentTarget);
+        await runMemberUpdate(render, async () => {
+          if (!isValidEmail(data.email)) throw new Error(text.invalidEmail);
+          await saveMemberUpdate({
+            accessSettings,
+            updater(draft) {
+              const member = createManualMember(data, draft.members.length);
+              draft.members = upsertMember(draft.members, member);
+              return draft.members;
+            },
+          });
+        });
+      });
+
       root.querySelector("[data-ai-key-form]")?.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {
@@ -125,11 +208,13 @@ export function settingsView(trip, render) {
         }
         render();
       });
+
       root.querySelector("[data-clear-ai-key]")?.addEventListener("click", () => {
         clearAiKey();
         state.notice = text.aiCleared;
         render();
       });
+
       root.querySelector("[data-whitelist-form]")?.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {
@@ -142,15 +227,85 @@ export function settingsView(trip, render) {
         }
         render();
       });
+
       root.addEventListener("click", async (event) => {
         const email = event.target.closest("[data-remove-whitelist]")?.dataset.removeWhitelist;
-        if (!email) return;
-        state.accessSettings = await saveAccessSettings(removeGoogleWhitelistEmail(accessSettings, email));
-        state.notice = text.whitelistUpdated;
-        render();
+        if (email) {
+          await runMemberUpdate(render, async () => {
+            state.accessSettings = await saveAccessSettings(removeGoogleWhitelistEmail(accessSettings, email));
+            state.notice = text.whitelistUpdated;
+          });
+          return;
+        }
+
+        const editMemberId = event.target.closest("[data-edit-member]")?.dataset.editMember;
+        if (editMemberId) {
+          const member = trip.members.find((entry) => entry.id === editMemberId);
+          if (!member) return;
+          const name = window.prompt(text.editNamePrompt, member.name);
+          if (!name) return;
+          const emailValue = window.prompt(text.editEmailPrompt, member.email || "");
+          if (!isValidEmail(emailValue)) {
+            state.error = text.invalidEmail;
+            render();
+            return;
+          }
+          await runMemberUpdate(render, async () => saveMemberUpdate({
+            accessSettings,
+            updater(draft) {
+              draft.members = upsertMember(draft.members, { ...member, name: name.trim(), email: normalizeEmail(emailValue) });
+              return draft.members;
+            },
+          }));
+          return;
+        }
+
+        const deleteMemberId = event.target.closest("[data-delete-member]")?.dataset.deleteMember;
+        if (deleteMemberId) {
+          const member = trip.members.find((entry) => entry.id === deleteMemberId);
+          if (!member) return;
+          if (isOwnerEmail(member.email)) {
+            state.error = text.cannotDeleteOwner;
+            render();
+            return;
+          }
+          if (!window.confirm(`${text.deleteConfirm1}\n\n${member.name}`)) return;
+          if (!window.confirm(text.deleteConfirm2)) return;
+          if (window.prompt(`${text.deleteTypePrompt}: ${member.name}`) !== member.name) return;
+
+          await runMemberUpdate(render, async () => {
+            let nextMembers = [];
+            state.store = updateActiveTrip(state.store, (draft) => {
+              const nextTrip = removeMemberFromTrip(draft, deleteMemberId);
+              nextMembers = nextTrip.members;
+              return nextTrip;
+            });
+            state.accessSettings = await saveAccessSettings(removeAccessEmail(syncMemberEmails(accessSettings, nextMembers), member.email));
+            state.notice = text.memberDeleted;
+          });
+        }
       });
     },
   };
+}
+
+async function runMemberUpdate(render, action) {
+  try {
+    await action();
+  } catch (error) {
+    state.error = error.message;
+  }
+  render();
+}
+
+async function saveMemberUpdate({ accessSettings, updater }) {
+  let nextMembers = [];
+  state.store = updateActiveTrip(state.store, (draft) => {
+    nextMembers = updater(draft);
+    return draft;
+  });
+  state.accessSettings = await saveAccessSettings(syncMemberEmails(accessSettings, nextMembers));
+  state.notice = text.memberSaved;
 }
 
 function renderStyleOption(id, label, description) {
@@ -160,6 +315,53 @@ function renderStyleOption(id, label, description) {
       <span>${label}</span>
       <small>${description}</small>
     </button>
+  `;
+}
+
+function renderMyRoleForm(member) {
+  return `
+    <form class="form-grid member-role-form" data-my-role-form>
+      <div class="field">
+        <label>${text.myRole}</label>
+        <input class="input" name="name" value="${escapeHtml(member?.name || state.user?.displayName || state.user?.email?.split("@")[0] || "")}" required />
+      </div>
+      <button class="button primary full" type="submit">${member ? text.updateMyRole : text.createMyRole}</button>
+    </form>
+  `;
+}
+
+function renderManualMemberForm() {
+  return `
+    <form class="form-grid member-role-form" data-manual-member-form>
+      <div class="form-row">
+        <div class="field"><label>${text.memberName}</label><input class="input" name="name" required /></div>
+        <div class="field"><label>${text.memberEmail}</label><input class="input" name="email" type="email" required /></div>
+      </div>
+      <button class="button secondary full" type="submit">${text.addMember}</button>
+    </form>
+  `;
+}
+
+function renderMemberList(trip, currentMember) {
+  const members = [...(trip.members || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  if (!members.length) return `<div class="empty">${text.noMembers}</div>`;
+  return `
+    <div class="list member-role-list">
+      ${members.map((member) => `
+        <article class="card member-role-card" style="--member-color:${escapeHtml(member.color || "#116b63")}">
+          <span class="member-color-bar"></span>
+          <div class="member-role-copy">
+            <h3>${escapeHtml(member.name)} ${member.id === currentMember?.id ? `<small>${text.you}</small>` : ""}</h3>
+            <p>${escapeHtml(member.email || text.noEmail)}</p>
+            <small>${text.memberUid}: ${escapeHtml(member.uid || text.manual)}</small>
+          </div>
+          <div class="row-actions">
+            <button class="action-pill" type="button" data-edit-member="${escapeHtml(member.id)}">${text.edit}</button>
+            <button class="action-pill danger" type="button" data-delete-member="${escapeHtml(member.id)}">${text.deleteAccount}</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -174,11 +376,10 @@ function renderWhitelist(settings) {
         (settings.googleWhitelist || [])
           .map(
             (email) =>
-              `<div class="card packing-row"><span>${escapeHtml(email)}</span><button class="action-pill danger" data-remove-whitelist="${escapeHtml(email)}">${text.remove}</button></div>`,
+              `<div class="card packing-row"><span>${escapeHtml(email)}</span><button class="action-pill danger" type="button" data-remove-whitelist="${escapeHtml(email)}">${text.remove}</button></div>`,
           )
           .join("") || `<div class="empty">${text.whitelistEmpty}</div>`
       }
     </div>
   `;
 }
-

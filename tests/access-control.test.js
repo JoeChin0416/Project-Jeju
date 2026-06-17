@@ -5,21 +5,24 @@ import {
   addGoogleWhitelistEmail,
   canManageAccess,
   checkGoogleAccess,
+  checkUserAccess,
   removeGoogleWhitelistEmail,
 } from "../src/services/access-control.js";
 
-test("allows email login accounts to manage Google whitelist", () => {
-  assert.equal(canManageAccess({ mode: "firebase", authProvider: "password" }), true);
-  assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com" }), false);
+test("allows only owners and configured admins to manage Google whitelist", () => {
+  assert.equal(canManageAccess({ mode: "firebase", authProvider: "password", email: "dpluschin0416@gmail.com" }), true);
+  assert.equal(canManageAccess({ mode: "firebase", authProvider: "password", email: "member@example.com" }, { adminEmails: [] }), false);
+  assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "admin@example.com" }, { adminEmails: ["admin@example.com"] }), true);
 });
 
-test("does not restrict email login accounts", () => {
-  const result = checkGoogleAccess(
-    { mode: "firebase", authProvider: "password", email: "admin@example.com" },
-    { googleWhitelist: ["friend@gmail.com"] },
+test("blocks password users that are not owner admin or trip members", () => {
+  const result = checkUserAccess(
+    { mode: "firebase", authProvider: "password", email: "stranger@example.com" },
+    { googleWhitelist: ["friend@gmail.com"], memberEmails: ["member@example.com"], adminEmails: [] },
   );
 
-  assert.equal(result.allowed, true);
+  assert.equal(result.allowed, false);
+  assert.match(result.reason, /旅伴角色/);
 });
 
 test("blocks Google accounts while whitelist is empty", () => {
@@ -32,6 +35,15 @@ test("blocks Google accounts while whitelist is empty", () => {
   assert.match(result.reason, /白名單/);
 });
 
+test("allows whitelisted Google accounts before their trip role is created", () => {
+  const result = checkGoogleAccess(
+    { mode: "firebase", authProvider: "google.com", email: "friend@gmail.com" },
+    { googleWhitelist: ["friend@gmail.com"], memberEmails: [], adminEmails: [] },
+  );
+
+  assert.equal(result.allowed, true);
+});
+
 test("blocks Google accounts until access settings have been initialized", () => {
   const result = checkGoogleAccess(
     { mode: "firebase", authProvider: "google.com", email: "friend@gmail.com" },
@@ -39,7 +51,7 @@ test("blocks Google accounts until access settings have been initialized", () =>
   );
 
   assert.equal(result.allowed, false);
-  assert.match(result.reason, /Email 登入/);
+  assert.match(result.reason, /尚未初始化/);
 });
 
 test("blocks Google accounts missing from whitelist", () => {
@@ -49,7 +61,7 @@ test("blocks Google accounts missing from whitelist", () => {
   );
 
   assert.equal(result.allowed, false);
-  assert.match(result.reason, /尚未開放/);
+  assert.match(result.reason, /尚未被加入/);
 });
 
 test("normalizes whitelist email add and remove", () => {
