@@ -4,7 +4,7 @@ import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses
 import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
 import { calculateSettlement } from "../features/settlement.js";
 import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
-import { getAvatarPreset } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
+import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
 import { formatCurrency } from "../utils/currency.js";
@@ -203,7 +203,7 @@ function renderMemberDashboard(trip, summary) {
           return `
             <article class="member-expense-card" style="--member-color:${member.color}">
               <span class="member-color-bar"></span>
-              <div class="member-expense-head"><img class="member-avatar" src="${escapeHtml(member.avatarUrl || getAvatarPreset(member.avatarPresetId).url)}" alt="" /><div><h3>${escapeHtml(member.name)}</h3><span class="${entry.net >= 0 ? "positive" : "negative"}">${formatCurrency(entry.net)}</span></div></div>
+              <div class="member-expense-head"><img class="member-avatar" src="${escapeHtml(resolveAvatarUrl(member.avatarPresetId, member.avatarUrl))}" alt="" /><div><h3>${escapeHtml(member.name)}</h3><span class="${entry.net >= 0 ? "positive" : "negative"}">${formatCurrency(entry.net)}</span></div></div>
               <div class="member-expense-stats"><span>${T.paid}<strong>${formatCurrency(entry.paid)}</strong></span><span>${T.spent}<strong>${formatCurrency(entry.spent)}</strong></span></div>
             </article>
           `;

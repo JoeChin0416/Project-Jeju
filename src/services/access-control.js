@@ -5,7 +5,7 @@ import { hasFirebaseConfig } from "./firebase.js";
 const LOCAL_ACCESS_KEY = "project-jeju.access-settings";
 
 const DEFAULT_ACCESS_SETTINGS = {
-  googleWhitelist: OWNER_EMAILS,
+  googleWhitelist: [],
   memberEmails: [],
   adminEmails: OWNER_EMAILS,
 };
@@ -122,7 +122,7 @@ function normalizeAccessSettings(settings) {
   return {
     ...DEFAULT_ACCESS_SETTINGS,
     ...(settings ?? {}),
-    googleWhitelist: normalizeEmailList([...(settings?.googleWhitelist ?? []), ...DEFAULT_ACCESS_SETTINGS.googleWhitelist]),
+    googleWhitelist: normalizeEmailList(settings?.googleWhitelist).filter((email) => !OWNER_EMAILS.includes(email)),
     memberEmails: normalizeEmailList(settings?.memberEmails),
     adminEmails: normalizeEmailList([...(settings?.adminEmails ?? []), ...OWNER_EMAILS]),
   };

@@ -1,5 +1,6 @@
-﻿import { getDefaultAvatarForIndex, getAvatarPreset } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
+﻿import { getDefaultAvatarForIndex } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { normalizeTravelNotes } from "../features/journal.js?v=20260604-qa-weather-ocr";
+import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { PACKING_CATEGORIES, createDefaultPackingItems, createPersonalPackingItems } from "../features/packing.js?v=20260604-qa-weather-ocr";
 import { createRentalChecklist, normalizeRentalChecklist } from "../features/rental-checklist.js";
 import { isDefaultPlaceholderMemberSet } from "../features/members.js";
@@ -212,7 +213,7 @@ function ensureMemberAvatar(member, index = 0) {
   return {
     ...member,
     avatarPresetId,
-    avatarUrl: member.avatarUrl || getAvatarPreset(avatarPresetId).url,
+    avatarUrl: resolveAvatarUrl(avatarPresetId, member.avatarUrl),
   };
 }
 

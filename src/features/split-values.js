@@ -61,6 +61,6 @@ function roundMoney(value) {
 }
 
 function roundPercent(value) {
-  return Math.round(Number(value || 0) * 10) / 10;
+  return Math.round(Number(value || 0));
 }
 

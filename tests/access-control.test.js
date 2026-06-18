@@ -17,11 +17,11 @@ test("allows only owners and configured admins to manage Google whitelist", () =
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "admin@example.com" }, { adminEmails: ["admin@example.com"] }), true);
 });
 
-test("default access settings include owner emails in admin and Google whitelist", () => {
+test("default access settings keep owner emails in admin without forcing them into Google whitelist", () => {
   const settings = createDefaultAccessSettings();
 
   assert.ok(settings.adminEmails.includes("joe.chin@joe.com.tw"));
-  assert.ok(settings.googleWhitelist.includes("joe.chin@joe.com.tw"));
+  assert.ok(!settings.googleWhitelist.includes("joe.chin@joe.com.tw"));
 });
 
 test("blocks password users that are not owner admin or trip members", () => {
@@ -80,6 +80,5 @@ test("normalizes whitelist email add and remove", () => {
   );
 
   assert.equal(settings.googleWhitelist.filter((email) => email === "friend@gmail.com").length, 1);
-  assert.ok(settings.googleWhitelist.includes("joe.chin@joe.com.tw"));
   assert.ok(!removeGoogleWhitelistEmail(settings, "FRIEND@gmail.com").googleWhitelist.includes("friend@gmail.com"));
 });

@@ -13,7 +13,7 @@ test("defaults ratio split values to equal weights when empty", () => {
 
 test("builds default slider weights from current participants", () => {
   assert.deepEqual(buildDefaultRatioWeights(["a", "b"]), { a: 50, b: 50 });
-  assert.deepEqual(buildDefaultRatioWeights(["a", "b", "c"]), { a: 33.3, b: 33.3, c: 33.3 });
+  assert.deepEqual(buildDefaultRatioWeights(["a", "b", "c"]), { a: 33, b: 33, c: 33 });
   assert.deepEqual(buildDefaultRatioWeights(["a", "b", "c", "d"]), { a: 25, b: 25, c: 25, d: 25 });
 });
 
@@ -23,6 +23,6 @@ test("normalizes fixed split values and fills empty manual amounts equally", () 
 });
 
 test("builds visible split percentages for equal and ratio modes", () => {
-  assert.deepEqual(buildSplitPreview(["a", "b", "c"], "equal"), { a: 33.3, b: 33.3, c: 33.3 });
+  assert.deepEqual(buildSplitPreview(["a", "b", "c"], "equal"), { a: 33, b: 33, c: 33 });
   assert.deepEqual(buildSplitPreview(["a", "b"], "ratio", { a: 3, b: 1 }), { a: 75, b: 25 });
 });

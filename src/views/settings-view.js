@@ -18,7 +18,7 @@ import {
   removeMemberFromTrip,
   upsertMember,
 } from "../features/members.js";
-import { AVATAR_PRESETS, getAvatarPreset } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
+import { AVATAR_PRESETS, getAvatarPreset, isCustomAvatarUrl, resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { setUiStyle, state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
 import { escapeHtml, formToObject } from "../utils/dom.js";
@@ -42,6 +42,7 @@ const text = {
   avatar: "角色照片",
   presetAvatar: "預設頭像",
   uploadAvatar: "上傳照片",
+  previewAvatar: "預覽頭像",
   addMember: "新增旅伴",
   memberName: "名稱",
   memberEmail: "Email",
@@ -151,6 +152,7 @@ export function settingsView(trip, render) {
         <div class="section-title"><div><h2>${text.whitelist}</h2><p>${text.whitelistHelp}</p></div></div>
         ${accessManageable ? renderWhitelist(accessSettings) : `<div class="status">${text.whitelistNoAccess}</div>`}
       </section>
+      ${renderAvatarPreviewModal()}
     `,
     bind(root) {
       root.querySelectorAll("[data-style-option]").forEach((button) => {
@@ -255,6 +257,25 @@ export function settingsView(trip, render) {
       });
 
       root.addEventListener("click", async (event) => {
+        if (event.target.matches("[data-close-avatar-preview]") || event.target.closest("[data-close-avatar-preview-button]")) {
+          state.modal = null;
+          render();
+          return;
+        }
+
+        const avatarPreviewButton = event.target.closest("[data-avatar-preview-button]");
+        if (avatarPreviewButton) {
+          const image = avatarPreviewButton.querySelector("img");
+          if (!image?.src) return;
+          state.modal = {
+            type: "avatar-preview",
+            url: image.src,
+            label: avatarPreviewButton.dataset.avatarLabel || text.previewAvatar,
+          };
+          render();
+          return;
+        }
+
         const avatarPresetId = event.target.closest("[data-avatar-preset]")?.dataset.avatarPreset;
         if (avatarPresetId) {
           setAvatarDraft(root, { avatarPresetId, avatarUrl: "" });
@@ -355,7 +376,9 @@ function renderMyRoleForm(member) {
   return `
     <form class="form-grid member-role-form" data-my-role-form>
       <div class="avatar-editor">
-        <img class="member-avatar large" src="${escapeHtml(avatarDraft.previewUrl)}" alt="${text.avatar}" data-my-avatar-preview />
+        <button class="avatar-preview-button" type="button" data-avatar-preview-button data-avatar-label="${escapeHtml(text.myRole)}">
+          <img class="member-avatar large" src="${escapeHtml(avatarDraft.previewUrl)}" alt="${text.avatar}" data-my-avatar-preview />
+        </button>
         <div class="form-grid">
           <div class="field">
             <label>${text.presetAvatar}</label>
@@ -402,7 +425,9 @@ function renderMemberList(trip, currentMember) {
       ${members.map((member) => `
         <article class="card member-role-card" style="--member-color:${escapeHtml(member.color || "#116b63")}">
           <span class="member-color-bar"></span>
-          <img class="member-avatar" src="${escapeHtml(resolveMemberAvatarUrl(member))}" alt="" />
+          <button class="avatar-preview-button" type="button" data-avatar-preview-button data-avatar-label="${escapeHtml(member.name)}">
+            <img class="member-avatar" src="${escapeHtml(resolveMemberAvatarUrl(member))}" alt="" />
+          </button>
           <div class="member-role-copy">
             <h3>${escapeHtml(member.name)} ${member.id === currentMember?.id ? `<small>${text.you}</small>` : ""}</h3>
             <p>${escapeHtml(member.email || text.noEmail)}</p>
@@ -418,10 +443,25 @@ function renderMemberList(trip, currentMember) {
   `;
 }
 
+function renderAvatarPreviewModal() {
+  if (state.modal?.type !== "avatar-preview") return "";
+  return `
+    <div class="sheet-backdrop avatar-preview-backdrop" data-close-avatar-preview>
+      <section class="avatar-preview-modal" role="dialog" aria-label="${escapeHtml(state.modal.label || text.previewAvatar)}">
+        <div class="sheet-head">
+          <h2>${escapeHtml(state.modal.label || text.previewAvatar)}</h2>
+          <button class="action-pill" type="button" data-close-avatar-preview-button>${text.close}</button>
+        </div>
+        <img class="avatar-preview-image" src="${escapeHtml(state.modal.url)}" alt="${escapeHtml(state.modal.label || text.previewAvatar)}" />
+      </section>
+    </div>
+  `;
+}
+
 function getAvatarDraft(member) {
   const avatarPresetId = member?.avatarPresetId || AVATAR_PRESETS[0].id;
   const presetUrl = getAvatarPreset(avatarPresetId).url;
-  const avatarUrl = member?.avatarUrl && member.avatarUrl !== presetUrl ? member.avatarUrl : "";
+  const avatarUrl = isCustomAvatarUrl(member?.avatarUrl) && member.avatarUrl !== presetUrl ? member.avatarUrl : "";
   return {
     avatarPresetId,
     avatarUrl,
@@ -430,8 +470,7 @@ function getAvatarDraft(member) {
 }
 
 function resolveMemberAvatarUrl(member) {
-  const presetUrl = getAvatarPreset(member?.avatarPresetId).url;
-  return member?.avatarUrl || presetUrl;
+  return resolveAvatarUrl(member?.avatarPresetId, member?.avatarUrl);
 }
 
 function setAvatarDraft(root, { avatarPresetId, avatarUrl }) {
