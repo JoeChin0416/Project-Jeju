@@ -1,14 +1,14 @@
 const AVATAR_DEFINITIONS = [
-  ["girl-pink", "粉色女孩", "girl", "#ffe1ec", "#8b3a62", "#ff8fb3"],
-  ["girl-mint", "薄荷女孩", "girl", "#dff8ef", "#166b5d", "#79d7b8"],
-  ["girl-blue", "藍色女孩", "girl", "#dfeeff", "#2f5597", "#78aaf2"],
-  ["girl-lavender", "薰衣草女孩", "girl", "#efe6ff", "#6a4c93", "#b9a0ef"],
-  ["dog-cream", "奶油狗狗", "dog", "#fff1cf", "#8d6a3f", "#f1c27a"],
-  ["dog-brown", "可可狗狗", "dog", "#f4dcc8", "#714423", "#b6794c"],
-  ["dog-black", "黑糖狗狗", "dog", "#e9e5df", "#2d2926", "#81766c"],
-  ["cat-orange", "橘貓", "cat", "#ffe5c6", "#914d1c", "#f29d4b"],
-  ["cat-gray", "灰貓", "cat", "#e7edf2", "#52616b", "#a3b1bc"],
-  ["cat-white", "白貓", "cat", "#f7f4ed", "#5f6470", "#f5c6cf"],
+  ["jeju-girl-rose", "玫瑰女孩", "girl", "#ffe6ef", "#7d3b66", "#ff88ad"],
+  ["jeju-girl-mint", "薄荷女孩", "girl", "#e1f8ef", "#176b5f", "#71d3b4"],
+  ["jeju-girl-lavender", "紫藤女孩", "girl", "#eee6ff", "#674b93", "#b39cf0"],
+  ["jeju-girl-coral", "珊瑚女孩", "girl", "#ffe9df", "#8b4432", "#ff9b7a"],
+  ["jeju-cat-cream", "奶油小貓", "cat", "#fff3d7", "#7c5a36", "#f2c178"],
+  ["jeju-cat-peach", "水蜜桃小貓", "cat", "#ffe2dc", "#8a4c54", "#ff9aa7"],
+  ["jeju-cat-mint", "薄荷小貓", "cat", "#ddf7f2", "#356d73", "#77d5c8"],
+  ["jeju-dog-cream", "奶油小狗", "dog", "#fff1cf", "#80613d", "#f0bd75"],
+  ["jeju-dog-cocoa", "可可小狗", "dog", "#f3dcc9", "#674026", "#b87a4c"],
+  ["jeju-dog-lavender", "紫奶小狗", "dog", "#eee8ff", "#5f5576", "#b3a2ea"],
 ];
 
 export const AVATAR_PRESETS = AVATAR_DEFINITIONS.map(([id, label, kind, bg, ink, accent]) => ({

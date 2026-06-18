@@ -351,7 +351,6 @@ html[data-ui-style="style3"] .map-icon-button {
   border-radius: 999px;
 }
 
-html[data-ui-style="style3"] .route-metric,
 html[data-ui-style="style3"] .transport-detail,
 html[data-ui-style="style3"] .member-expense-stats span,
 html[data-ui-style="style3"] .daily-spend-stats span,
@@ -361,7 +360,6 @@ html[data-ui-style="style3"] .category-spend-item {
   border-radius: 18px;
 }
 
-html[data-ui-style="style3"] .route-metric strong,
 html[data-ui-style="style3"] .money.positive {
   color: #0f766e;
 }

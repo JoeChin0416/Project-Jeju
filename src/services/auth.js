@@ -22,8 +22,12 @@ export async function signInWithEmail(email, password) {
   if (!hasFirebaseConfig()) return { ...DEMO_USER, email: email || DEMO_USER.email };
   const runtime = await initializeFirebaseRuntime();
   const { signInWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
-  const result = await signInWithEmailAndPassword(runtime.auth, email, password);
-  return normalizeFirebaseUser(result.user, "password");
+  try {
+    const result = await signInWithEmailAndPassword(runtime.auth, email, password);
+    return normalizeFirebaseUser(result.user, "password");
+  } catch (error) {
+    throw normalizeAuthError(error);
+  }
 }
 
 export async function signInWithGoogle() {
@@ -32,8 +36,12 @@ export async function signInWithGoogle() {
   const { GoogleAuthProvider, signInWithPopup } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
-  const result = await signInWithPopup(runtime.auth, provider);
-  return normalizeFirebaseUser(result.user, "google.com");
+  try {
+    const result = await signInWithPopup(runtime.auth, provider);
+    return normalizeFirebaseUser(result.user, "google.com");
+  } catch (error) {
+    throw normalizeAuthError(error);
+  }
 }
 
 export async function signOutUser() {
@@ -58,6 +66,13 @@ function inferAuthProvider(user) {
   if (providerIds.includes("password")) return "password";
   if (providerIds.includes("google.com")) return "google.com";
   return providerIds[0] || "";
+}
+
+function normalizeAuthError(error) {
+  if (error?.code === "auth/admin-restricted-operation") {
+    return new Error("Firebase Auth 目前禁止新登入者建立帳號。Google 白名單只會控管 App 資料權限；若要讓白名單使用者第一次 Google 登入，請在 Firebase Auth 允許使用者建立帳號，或先在 Auth 後台建立該使用者。");
+  }
+  return error;
 }
 
 function waitForAuthUser(auth, onAuthStateChanged, timeoutMs) {

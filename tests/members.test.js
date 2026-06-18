@@ -26,11 +26,17 @@ test("creates and finds the signed-in user's trip role", () => {
     email: " Friend@Gmail.com ",
     displayName: "Friend",
   };
-  const member = createMemberForUser(user, { name: "旅伴 Joy" }, 2);
+  const member = createMemberForUser(
+    user,
+    { name: "旅伴 Joy", avatarPresetId: "jeju-girl-rose", avatarUrl: "https://example.com/me.jpg" },
+    2,
+  );
 
   assert.equal(member.uid, "uid-1");
   assert.equal(member.email, "friend@gmail.com");
   assert.equal(member.name, "旅伴 Joy");
+  assert.equal(member.avatarPresetId, "jeju-girl-rose");
+  assert.equal(member.avatarUrl, "https://example.com/me.jpg");
   assert.equal(findMemberForUser([member], { uid: "uid-1", email: "other@gmail.com" }).id, member.id);
   assert.equal(findMemberForUser([member], { uid: "other", email: "FRIEND@gmail.com" }).id, member.id);
 });

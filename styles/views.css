@@ -305,42 +305,6 @@
   stroke-width: 2;
 }
 
-.route-metric {
-  justify-self: stretch;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 8px;
-  min-width: 118px;
-  padding: 9px 10px;
-  text-align: right;
-  background: rgba(17, 107, 99, 0.07);
-  border: 1px solid rgba(17, 107, 99, 0.12);
-  border-radius: 13px;
-}
-
-.route-metric span {
-  grid-column: 1 / -1;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.route-metric strong {
-  color: var(--teal-strong);
-  font-size: 15px;
-}
-
-.route-metric em {
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
-}
-
-.route-metric.is-muted {
-  background: var(--surface-strong);
-  border-color: var(--line);
-}
-
 .place-row {
   display: grid;
   gap: 9px;
@@ -2343,10 +2307,6 @@
 
   .place-side-actions {
     justify-content: flex-start;
-  }
-
-  .route-metric {
-    text-align: left;
   }
 
   .flight-route,

@@ -18,9 +18,11 @@ import {
   removeMemberFromTrip,
   upsertMember,
 } from "../features/members.js";
+import { AVATAR_PRESETS, getAvatarPreset } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { setUiStyle, state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
 import { escapeHtml, formToObject } from "../utils/dom.js";
+import { fileToCompressedDataUrl } from "../utils/image.js?v=20260604-qa-weather-ocr";
 
 const text = {
   settings: "設定",
@@ -37,6 +39,9 @@ const text = {
   myRole: "我的角色",
   createMyRole: "建立我的角色",
   updateMyRole: "更新我的角色",
+  avatar: "角色照片",
+  presetAvatar: "預設頭像",
+  uploadAvatar: "上傳照片",
   addMember: "新增旅伴",
   memberName: "名稱",
   memberEmail: "Email",
@@ -174,11 +179,32 @@ export function settingsView(trip, render) {
         await runMemberUpdate(render, async () => saveMemberUpdate({
           accessSettings,
           updater(draft) {
-            const nextMember = createMemberForUser(state.user, { ...currentMember, name: data.name }, draft.members.length);
+            const nextMember = createMemberForUser(
+              state.user,
+              {
+                ...currentMember,
+                name: data.name,
+                avatarPresetId: data.avatarPresetId,
+                avatarUrl: data.avatarUrl,
+              },
+              draft.members.length,
+            );
             draft.members = upsertMember(draft.members, nextMember);
             return draft.members;
           },
         }));
+      });
+
+      root.querySelector("[data-avatar-upload]")?.addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+          const dataUrl = await fileToCompressedDataUrl(file, { maxSize: 420, quality: 0.78 });
+          setAvatarDraft(root, { avatarUrl: dataUrl, avatarPresetId: "" });
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
       });
 
       root.querySelector("[data-manual-member-form]")?.addEventListener("submit", async (event) => {
@@ -229,6 +255,12 @@ export function settingsView(trip, render) {
       });
 
       root.addEventListener("click", async (event) => {
+        const avatarPresetId = event.target.closest("[data-avatar-preset]")?.dataset.avatarPreset;
+        if (avatarPresetId) {
+          setAvatarDraft(root, { avatarPresetId, avatarUrl: "" });
+          return;
+        }
+
         const email = event.target.closest("[data-remove-whitelist]")?.dataset.removeWhitelist;
         if (email) {
           await runMemberUpdate(render, async () => {
@@ -319,8 +351,28 @@ function renderStyleOption(id, label, description) {
 }
 
 function renderMyRoleForm(member) {
+  const avatarDraft = getAvatarDraft(member);
   return `
     <form class="form-grid member-role-form" data-my-role-form>
+      <div class="avatar-editor">
+        <img class="member-avatar large" src="${escapeHtml(avatarDraft.previewUrl)}" alt="${text.avatar}" data-my-avatar-preview />
+        <div class="form-grid">
+          <div class="field">
+            <label>${text.presetAvatar}</label>
+            <div class="avatar-preset-grid">
+              ${AVATAR_PRESETS.map((avatar) => `
+                <button class="avatar-preset ${avatar.id === avatarDraft.avatarPresetId ? "is-active" : ""}" type="button" data-avatar-preset="${escapeHtml(avatar.id)}" title="${escapeHtml(avatar.label)}">
+                  <img src="${escapeHtml(avatar.url)}" alt="${escapeHtml(avatar.label)}" />
+                </button>
+              `).join("")}
+            </div>
+          </div>
+          <label class="button ghost full" for="member-avatar-upload">${text.uploadAvatar}</label>
+          <input id="member-avatar-upload" class="visually-hidden" type="file" accept="image/*" data-avatar-upload />
+        </div>
+      </div>
+      <input type="hidden" name="avatarPresetId" value="${escapeHtml(avatarDraft.avatarPresetId)}" data-avatar-preset-field />
+      <input type="hidden" name="avatarUrl" value="${escapeHtml(avatarDraft.avatarUrl)}" data-avatar-url-field />
       <div class="field">
         <label>${text.myRole}</label>
         <input class="input" name="name" value="${escapeHtml(member?.name || state.user?.displayName || state.user?.email?.split("@")[0] || "")}" required />
@@ -350,6 +402,7 @@ function renderMemberList(trip, currentMember) {
       ${members.map((member) => `
         <article class="card member-role-card" style="--member-color:${escapeHtml(member.color || "#116b63")}">
           <span class="member-color-bar"></span>
+          <img class="member-avatar" src="${escapeHtml(resolveMemberAvatarUrl(member))}" alt="" />
           <div class="member-role-copy">
             <h3>${escapeHtml(member.name)} ${member.id === currentMember?.id ? `<small>${text.you}</small>` : ""}</h3>
             <p>${escapeHtml(member.email || text.noEmail)}</p>
@@ -363,6 +416,34 @@ function renderMemberList(trip, currentMember) {
       `).join("")}
     </div>
   `;
+}
+
+function getAvatarDraft(member) {
+  const avatarPresetId = member?.avatarPresetId || AVATAR_PRESETS[0].id;
+  const presetUrl = getAvatarPreset(avatarPresetId).url;
+  const avatarUrl = member?.avatarUrl && member.avatarUrl !== presetUrl ? member.avatarUrl : "";
+  return {
+    avatarPresetId,
+    avatarUrl,
+    previewUrl: avatarUrl || presetUrl,
+  };
+}
+
+function resolveMemberAvatarUrl(member) {
+  const presetUrl = getAvatarPreset(member?.avatarPresetId).url;
+  return member?.avatarUrl || presetUrl;
+}
+
+function setAvatarDraft(root, { avatarPresetId, avatarUrl }) {
+  const presetField = root.querySelector("[data-avatar-preset-field]");
+  const urlField = root.querySelector("[data-avatar-url-field]");
+  const preview = root.querySelector("[data-my-avatar-preview]");
+  if (presetField) presetField.value = avatarPresetId || "";
+  if (urlField) urlField.value = avatarUrl || "";
+  if (preview) preview.src = avatarUrl || getAvatarPreset(avatarPresetId).url;
+  root.querySelectorAll("[data-avatar-preset]").forEach((button) => {
+    button.classList.toggle("is-active", Boolean(avatarPresetId) && button.dataset.avatarPreset === avatarPresetId);
+  });
 }
 
 function renderWhitelist(settings) {

@@ -1,7 +1,7 @@
 ﻿import { EXPENSE_CATEGORIES } from "../features/expense-categories.js?v=20260604-qa-weather-ocr";
 import { createExpenseFromReceiptItem } from "../features/expenses.js";
 import { calculateReceiptTotal, createBlankReceiptItem, updateReceiptDraftItem, updateReceiptDraftMeta } from "../features/receipt-draft.js?v=20260604-qa-weather-ocr";
-import { buildSplitValues } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { buildDefaultRatioWeights, buildSplitValues } from "../features/split-values.js?v=20260604-qa-weather-ocr";
 import { recognizeReceiptImage, translateImageLayout } from "../services/ai.js";
 import { uploadReceiptPhoto } from "../services/storage.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
@@ -329,8 +329,8 @@ function importReceipt(trip) {
       exchangeRate: draft.exchangeRate,
       payerId,
       participantIds,
-      splitMode: "equal",
-      splitValues: buildSplitValues(participantIds, "equal", {}, state.ocrDraft.total),
+      splitMode: "ratio",
+      splitValues: buildSplitValues(participantIds, "ratio", buildDefaultRatioWeights(participantIds), state.ocrDraft.total),
       expenseDate: state.ocrDraft.receiptDate || draft.startDate,
       receiptPhotoUrl: state.ocrDraft.photoUrl || state.receiptPhotoDraftUrl || "",
       receiptPhotoPath: state.ocrDraft.photoPath || state.receiptPhotoDraftPath || "",

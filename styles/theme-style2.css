@@ -496,8 +496,7 @@ html[data-ui-style="style2"] .itinerary-day-tab.is-active {
   box-shadow: inset 0 -5px 0 #f45d7d, 0 12px 26px rgba(244, 93, 125, 0.12);
 }
 
-html[data-ui-style="style2"] .itinerary-day-header strong,
-html[data-ui-style="style2"] .route-metric {
+html[data-ui-style="style2"] .itinerary-day-header strong {
   color: #6e55c3;
   background: #f2ecff;
   border-color: #eadbf5;

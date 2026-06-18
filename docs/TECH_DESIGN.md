@@ -36,7 +36,6 @@ The app has one HTML entry point and multiple source modules. It does not use a 
       settings-view.js
     features/
       itinerary.js
-      distance.js
       packing.js
       ocr-receipt.js
       translation.js
@@ -93,7 +92,6 @@ Views own DOM rendering and event binding. They call services, state modules, an
 
 Feature modules contain testable business logic:
 
-- `distance.js`: Haversine distance and travel-time estimate.
 - `ocr-receipt.js`: AI OCR response normalization and validation.
 - `translation.js`: AI translation response normalization.
 - `expenses.js`: Expense item calculations and validation.
@@ -211,9 +209,6 @@ No cross-user trip sharing is supported in MVP.
   dayId: string,
   name: string,
   address: string,
-  lat: number | null,
-  lng: number | null,
-  travelModeToNext: "walking" | "driving" | "transit",
   sortOrder: number,
   notes: string
 }

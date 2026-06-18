@@ -11,7 +11,8 @@ service cloud.firestore {
     }
 
     function isOwner() {
-      return signedIn() && signedInEmail() == "dpluschin0416@gmail.com";
+      return signedIn()
+        && (signedInEmail() == "joe.chin@joe.com.tw" || signedInEmail() == "dpluschin0416@gmail.com");
     }
 
     function isPasswordUser() {

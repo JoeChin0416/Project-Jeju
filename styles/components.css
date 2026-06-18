@@ -95,11 +95,13 @@
 .icon-button {
   display: grid;
   place-items: center;
-  width: 42px;
+  width: 44px;
   padding: 0;
   color: var(--ink);
   background: var(--surface);
   border-color: var(--line);
+  border-radius: 16px;
+  box-shadow: 0 8px 18px rgba(31, 45, 38, 0.07);
 }
 
 .icon-button.is-active {
@@ -242,7 +244,8 @@
 .member-role-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
   overflow: hidden;
   padding-left: 18px;

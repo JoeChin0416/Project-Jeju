@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildSplitPreview, buildSplitValues } from "../src/features/split-values.js";
+import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues } from "../src/features/split-values.js";
 
 test("keeps equal split values empty", () => {
   assert.deepEqual(buildSplitValues(["a", "b"], "equal", {}, 200), {});
@@ -9,6 +9,12 @@ test("keeps equal split values empty", () => {
 
 test("defaults ratio split values to equal weights when empty", () => {
   assert.deepEqual(buildSplitValues(["a", "b"], "ratio", {}, 200), { a: 1, b: 1 });
+});
+
+test("builds default slider weights from current participants", () => {
+  assert.deepEqual(buildDefaultRatioWeights(["a", "b"]), { a: 50, b: 50 });
+  assert.deepEqual(buildDefaultRatioWeights(["a", "b", "c"]), { a: 33.3, b: 33.3, c: 33.3 });
+  assert.deepEqual(buildDefaultRatioWeights(["a", "b", "c", "d"]), { a: 25, b: 25, c: 25, d: 25 });
 });
 
 test("normalizes fixed split values and fills empty manual amounts equally", () => {

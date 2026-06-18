@@ -3,7 +3,7 @@ import { buildCategoryPieGradient, summarizeDailySpending } from "../features/ex
 import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses.js";
 import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
 import { calculateSettlement } from "../features/settlement.js";
-import { buildSplitPreview, buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
 import { getAvatarPreset } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
@@ -41,11 +41,7 @@ const T = {
   rate: "\u532f\u7387",
   payer: "\u4ed8\u6b3e\u4eba",
   participants: "\u5206\u5e33\u5c0d\u8c61",
-  splitMode: "\u5206\u5e33\u65b9\u5f0f",
   splitShare: "目前分攤",
-  equal: "\u7b49\u5206",
-  ratio: "\u6bd4\u4f8b",
-  fixed: "\u624b\u52d5\u91d1\u984d",
   save: "\u5132\u5b58",
   close: "\u95dc\u9589",
   edit: "\u7de8\u8f2f",
@@ -121,7 +117,7 @@ export function expensesView(trip, render) {
         const enteredOriginal = parseFiniteNumber(data.totalOriginal);
         const totalBase = enteredBase ?? (enteredOriginal !== null ? convertToBaseAmount(enteredOriginal, exchangeRate) : 0);
         const totalOriginal = enteredOriginal ?? (enteredBase !== null ? convertFromBaseAmount(enteredBase, exchangeRate) : 0);
-        const splitValues = buildSplitValues(participantIds, data.splitMode, readSplitValuesFromForm(event.currentTarget), totalBase);
+        const splitValues = buildSplitValues(participantIds, "ratio", readSplitValuesFromForm(event.currentTarget), totalBase);
         const entry = state.modal?.mode === "edit" ? trip.expenseItems.find((item) => item.id === state.modal.id) : null;
         const item = {
           id: state.modal?.mode === "edit" ? state.modal.id : crypto.randomUUID(),
@@ -138,7 +134,7 @@ export function expensesView(trip, render) {
           totalBase,
           payerId: data.payerId,
           participantIds,
-          splitMode: data.splitMode || "equal",
+          splitMode: "ratio",
           splitValues,
           expenseDate: data.expenseDate || activeDate,
           receiptPhotoUrl: entry?.receiptPhotoUrl || "",
@@ -262,7 +258,7 @@ function renderExpenseSheet(trip, activeDate) {
   if (state.modal?.type !== "expense") return "";
   const entry = state.modal.mode === "edit" ? trip.expenseItems.find((item) => item.id === state.modal.id) : null;
   const participants = new Set(entry?.participantIds || trip.members.map((member) => member.id));
-  const splitMode = entry?.splitMode || "equal";
+  const splitValues = entry?.splitMode === "ratio" ? entry?.splitValues : buildDefaultRatioWeights([...participants]);
   return `
     <div class="sheet-backdrop">
       <section class="bottom-sheet">
@@ -274,8 +270,7 @@ function renderExpenseSheet(trip, activeDate) {
           <div class="form-row"><div class="field"><label>${T.currency}</label><input class="input" name="currency" value="${escapeHtml(entry?.currency || trip.tripCurrency)}" /></div><div class="field"><label>${T.rate}</label><input class="input" name="exchangeRate" inputmode="decimal" value="${escapeHtml(entry?.exchangeRate || trip.exchangeRate)}" data-amount-rate /></div></div>
           <div class="field"><label>${T.payer}</label><select class="select" name="payerId">${trip.members.map((member) => `<option value="${member.id}" ${entry?.payerId === member.id ? "selected" : ""}>${escapeHtml(member.name)}</option>`).join("")}</select></div>
           <div class="field"><label>${T.participants}</label><div class="meta-row">${trip.members.map((member) => `<label class="member-chip"><input type="checkbox" name="participantIds" value="${member.id}" ${participants.has(member.id) ? "checked" : ""} />${escapeHtml(member.name)}</label>`).join("")}</div></div>
-          <div class="field"><label>${T.splitMode}</label><select class="select" name="splitMode" data-split-mode><option value="equal">${T.equal}</option><option value="ratio" ${splitMode === "ratio" ? "selected" : ""}>${T.ratio}</option><option value="fixed" ${splitMode === "fixed" ? "selected" : ""}>${T.fixed}</option></select></div>
-          ${renderSplitControls(trip, participants, splitMode, entry?.splitValues)}
+          ${renderSplitControls(trip, participants, splitValues)}
           <button class="button primary full" type="submit">${T.save}</button>
         </form>
       </section>
@@ -283,19 +278,21 @@ function renderExpenseSheet(trip, activeDate) {
   `;
 }
 
-function renderSplitControls(trip, participants, mode, splitValues = {}) {
+function renderSplitControls(trip, participants, splitValues = {}) {
   const participantIds = trip.members.filter((member) => participants.has(member.id)).map((member) => member.id);
-  const preview = buildSplitPreview(participantIds, mode, splitValues);
+  const defaultWeights = buildDefaultRatioWeights(participantIds);
+  const values = { ...defaultWeights, ...(splitValues || {}) };
+  const preview = buildSplitPreview(participantIds, "ratio", values);
   return `
     <div class="split-value-grid" data-split-controls>
       ${trip.members.map((member) => {
         const isIncluded = participants.has(member.id);
-        const value = splitValues?.[member.id] ?? (mode === "ratio" && isIncluded ? 1 : "");
+        const value = isIncluded ? (values[member.id] ?? defaultWeights[member.id] ?? 0) : "";
         const percent = isIncluded ? `${preview[member.id] || 0}%` : "不分帳";
         return `
           <label class="split-value-row ${isIncluded ? "" : "is-disabled"}" data-split-row data-split-member="${member.id}">
             <span>${escapeHtml(member.name)}<em data-split-percent>${percent}</em></span>
-            <input class="input split-value-input" data-split-value="${member.id}" value="${escapeHtml(value)}" ${isIncluded && mode !== "equal" ? "" : "disabled"} />
+            <input class="input split-value-input is-range" type="range" min="0" max="100" step="1" data-split-value="${member.id}" value="${escapeHtml(value)}" ${isIncluded ? "" : "disabled"} />
           </label>
         `;
       }).join("")}
@@ -325,10 +322,8 @@ function bindExpenseFormInteractions(form, trip) {
   rateInput?.addEventListener("input", () => syncAmounts(lastAmountSource));
 
   const refreshSplitControls = () => {
-    const mode = form.querySelector("[data-split-mode]")?.value || "equal";
     const participantIds = [...form.querySelectorAll("[name='participantIds']:checked")].map((input) => input.value);
-    const rawValues = readSplitValuesFromForm(form);
-    const preview = buildSplitPreview(participantIds, mode, rawValues);
+    const defaultWeights = buildDefaultRatioWeights(participantIds);
     const participantSet = new Set(participantIds);
 
     form.querySelectorAll("[data-split-row]").forEach((row) => {
@@ -337,33 +332,32 @@ function bindExpenseFormInteractions(form, trip) {
       const percent = row.querySelector("[data-split-percent]");
       const isIncluded = participantSet.has(memberId);
       row.classList.toggle("is-disabled", !isIncluded);
-      if (percent) percent.textContent = isIncluded ? `${preview[memberId] || 0}%` : "不分帳";
       if (!input) return;
 
-      input.disabled = !isIncluded || mode === "equal";
-      input.classList.toggle("is-range", mode === "ratio");
-      if (mode === "ratio") {
-        input.type = "range";
-        input.min = "0";
-        input.max = "10";
-        input.step = "1";
-        if (isIncluded && !input.value) input.value = "1";
-      } else {
-        input.type = "text";
-        input.removeAttribute("min");
-        input.removeAttribute("max");
-        input.removeAttribute("step");
-        input.inputMode = "decimal";
-        if (mode === "equal") input.value = "";
-      }
+      input.disabled = !isIncluded;
+      input.type = "range";
+      input.min = "0";
+      input.max = "100";
+      input.step = "1";
+      input.classList.add("is-range");
+      if (isIncluded && !input.value) input.value = String(defaultWeights[memberId] ?? 0);
+    });
+
+    const rawValues = readSplitValuesFromForm(form);
+    const preview = buildSplitPreview(participantIds, "ratio", rawValues);
+    form.querySelectorAll("[data-split-row]").forEach((row) => {
+      const memberId = row.dataset.splitMember;
+      const percent = row.querySelector("[data-split-percent]");
+      const isIncluded = participantSet.has(memberId);
+      if (percent) percent.textContent = isIncluded ? `${preview[memberId] || 0}%` : "不分帳";
     });
   };
 
   form.addEventListener("input", (event) => {
-    if (event.target.matches("[data-split-value], [data-split-mode]")) refreshSplitControls();
+    if (event.target.matches("[data-split-value]")) refreshSplitControls();
   });
   form.addEventListener("change", (event) => {
-    if (event.target.matches("[name='participantIds'], [data-split-mode], [data-split-value]")) refreshSplitControls();
+    if (event.target.matches("[name='participantIds'], [data-split-value]")) refreshSplitControls();
   });
   refreshSplitControls();
 }

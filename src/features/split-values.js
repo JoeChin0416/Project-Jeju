@@ -20,6 +20,13 @@ export function buildSplitValues(participantIds, mode, rawValues = {}, total = 0
   return {};
 }
 
+export function buildDefaultRatioWeights(participantIds) {
+  const ids = [...new Set(participantIds ?? [])];
+  if (ids.length === 0) return {};
+  const share = roundPercent(100 / ids.length);
+  return Object.fromEntries(ids.map((id) => [id, share]));
+}
+
 export function buildSplitPreview(participantIds, mode = "equal", rawValues = {}) {
   const ids = [...new Set(participantIds ?? [])];
   if (ids.length === 0) return {};

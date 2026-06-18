@@ -1,4 +1,3 @@
-﻿import { getSegmentEstimate, formatSegmentEstimate } from "../features/distance.js";
 import { getMood, normalizeMoodId, TRIP_MOODS } from "../features/moods.js";
 import { getDailyWeather, getDepartureReminder } from "../features/travel-weather.js";
 import { normalizeRentalChecklist, toggleRentalChecklistItem } from "../features/rental-checklist.js";
@@ -26,7 +25,6 @@ const T = {
   addTransport: "新增交通",
   editTransport: "編輯交通",
   station: "站",
-  nextStop: "到下一站",
   openMap: "開啟地圖",
   mapSearch: "用 Google Maps 搜尋",
   edit: "編輯",
@@ -39,15 +37,6 @@ const T = {
   notes: "備註",
   mood: "心情貼紙",
   noMood: "先不選",
-  routeEstimate: "到下一站估算",
-  travelMode: "交通方式",
-  driving: "開車",
-  transit: "大眾運輸",
-  walking: "步行",
-  latitude: "緯度（可選）",
-  longitude: "經度（可選）",
-  manualDistanceKm: "到下一站距離 km",
-  manualMinutes: "到下一站時間 分",
   dailyWeather: "每日天氣",
   weather: "天氣",
   temperature: "溫度",
@@ -143,12 +132,6 @@ const T = {
   editCustom: "編輯交通資訊",
   noNotes: "目前沒有備註",
 };
-
-const TRAVEL_MODE_OPTIONS = [
-  { value: "driving", label: T.driving },
-  { value: "transit", label: T.transit },
-  { value: "walking", label: T.walking },
-];
 
 const TRANSPORT_TYPES = [
   { id: "rental-car", label: T.rentalCar, description: T.rentalDesc, icon: carIcon },
@@ -464,7 +447,6 @@ function renderDepartureReminder(reminder) {
 }
 
 function renderPlace(place, nextPlace, index) {
-  const estimate = getSegmentEstimate(place, nextPlace, place.travelModeToNext);
   const query = buildMapQuery(place.name, place.address);
   const mood = getMood(place.moodId);
   return `
@@ -481,7 +463,6 @@ function renderPlace(place, nextPlace, index) {
           ${renderMoodStrip(place)}
         </div>
         <div class="place-side">
-          <div class="route-metric ${estimate ? "" : "is-muted"}"><span>${T.nextStop} · ${escapeHtml(travelModeLabel(place.travelModeToNext))}</span><strong>${escapeHtml(formatSegmentEstimate(estimate))}</strong></div>
           <div class="place-side-actions">
             <a class="map-icon-button" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapIcon()}</a>
             <button class="action-pill" type="button" data-edit-place="${place.id}">${T.edit}</button>
@@ -754,16 +735,6 @@ function renderPlaceSheet(trip) {
           ${field(T.placeName, "name", editing?.name, { placeholder: "Olive Young Jeju Tapdong Branch", required: true })}
           ${field(T.address, "address", editing?.address, { placeholder: "Google Maps 景點名稱或地址" })}
           ${fieldSelect(T.mood, "moodId", [{ value: "", label: T.noMood }, ...TRIP_MOODS.map((mood) => ({ value: mood.id, label: mood.label }))], editing?.moodId || "")}
-          <div class="transport-form-section-title">${T.routeEstimate}</div>
-          ${fieldSelect(T.travelMode, "travelModeToNext", TRAVEL_MODE_OPTIONS, editing?.travelModeToNext || "driving")}
-          <div class="form-row">
-            ${field(T.manualDistanceKm, "manualDistanceKmToNext", editing?.manualDistanceKmToNext, { inputmode: "decimal", placeholder: "例如 5.1" })}
-            ${field(T.manualMinutes, "manualMinutesToNext", editing?.manualMinutesToNext, { inputmode: "numeric", placeholder: "例如 9" })}
-          </div>
-          <div class="form-row">
-            ${field(T.latitude, "lat", editing?.lat, { inputmode: "decimal", placeholder: "33.4996" })}
-            ${field(T.longitude, "lng", editing?.lng, { inputmode: "decimal", placeholder: "126.5312" })}
-          </div>
           ${fieldTextarea(T.notes, "notes", editing?.notes)}
           <button class="button primary full" type="submit">${T.save}</button>
         </form>
@@ -1116,11 +1087,6 @@ function createPlacePayload(data) {
     address: data.address,
     notes: data.notes,
     moodId: normalizeMoodId(data.moodId),
-    lat: data.lat,
-    lng: data.lng,
-    travelModeToNext: data.travelModeToNext || "driving",
-    manualDistanceKmToNext: data.manualDistanceKmToNext,
-    manualMinutesToNext: data.manualMinutesToNext,
   };
 }
 
@@ -1245,10 +1211,6 @@ function addLabel(entity) {
 
 function label(id) {
   return { days: T.dailyItinerary, lodging: T.lodging, transport: T.transport }[id] || id;
-}
-
-function travelModeLabel(mode) {
-  return TRAVEL_MODE_OPTIONS.find((option) => option.value === mode)?.label || T.driving;
 }
 
 function editLabel(type) {

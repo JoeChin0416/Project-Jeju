@@ -1,4 +1,4 @@
-export const OWNER_EMAILS = ["dpluschin0416@gmail.com"];
+export const OWNER_EMAILS = ["joe.chin@joe.com.tw", "dpluschin0416@gmail.com"];
 
 const MEMBER_COLORS = ["#116b63", "#ee6b4d", "#3167b7", "#d99716", "#8a63d2", "#f45d7d", "#62bcae", "#a88bea"];
 const PLACEHOLDER_IDS = ["m-a", "m-b", "m-c", "m-d", "m-e"];

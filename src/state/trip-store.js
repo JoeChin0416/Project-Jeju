@@ -383,7 +383,7 @@ function createSeedStore() {
   };
 }
 
-function place(id, dayId, name, address, lat, lng, sortOrder, notes = "") {
-  return { id, dayId, name, address, lat, lng, travelModeToNext: "driving", sortOrder, notes };
+function place(id, dayId, name, address, _lat, _lng, sortOrder, notes = "") {
+  return { id, dayId, name, address, sortOrder, notes };
 }
 
