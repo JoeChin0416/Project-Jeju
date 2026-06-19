@@ -27,6 +27,42 @@ export function buildDefaultRatioWeights(participantIds) {
   return Object.fromEntries(ids.map((id) => [id, share]));
 }
 
+export function rebalanceRatioWeights(participantIds, rawValues = {}, changedId, changedValue) {
+  const ids = [...new Set(participantIds ?? [])];
+  if (ids.length === 0) return {};
+  if (!ids.includes(changedId)) return buildDefaultRatioWeights(ids);
+  if (ids.length === 1) return { [ids[0]]: 100 };
+
+  const changedPercent = clampPercent(changedValue);
+  const remainingPercent = 100 - changedPercent;
+  const otherIds = ids.filter((id) => id !== changedId);
+  const otherWeights = Object.fromEntries(otherIds.map((id) => [id, Math.max(0, Number(rawValues[id] || 0))]));
+  const otherTotal = Object.values(otherWeights).reduce((sum, value) => sum + value, 0);
+  const exactShares = otherIds.map((id) => {
+    const ratio = otherTotal > 0 ? otherWeights[id] / otherTotal : 1 / otherIds.length;
+    const exact = ratio * remainingPercent;
+    return {
+      id,
+      value: Math.floor(exact),
+      remainder: exact - Math.floor(exact),
+    };
+  });
+
+  let remainderToAllocate = remainingPercent - exactShares.reduce((sum, entry) => sum + entry.value, 0);
+  [...exactShares]
+    .sort((a, b) => b.remainder - a.remainder || otherIds.indexOf(a.id) - otherIds.indexOf(b.id))
+    .forEach((entry) => {
+      if (remainderToAllocate <= 0) return;
+      entry.value += 1;
+      remainderToAllocate -= 1;
+    });
+
+  return {
+    [changedId]: changedPercent,
+    ...Object.fromEntries(exactShares.map((entry) => [entry.id, entry.value])),
+  };
+}
+
 export function buildSplitPreview(participantIds, mode = "equal", rawValues = {}) {
   const ids = [...new Set(participantIds ?? [])];
   if (ids.length === 0) return {};
@@ -62,5 +98,9 @@ function roundMoney(value) {
 
 function roundPercent(value) {
   return Math.round(Number(value || 0));
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, roundPercent(value)));
 }
 

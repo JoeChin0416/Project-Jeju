@@ -3,7 +3,7 @@ import { buildCategoryPieGradient, summarizeDailySpending } from "../features/ex
 import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses.js";
 import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
 import { calculateSettlement } from "../features/settlement.js";
-import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, rebalanceRatioWeights } from "../features/split-values.js?v=20260604-qa-weather-ocr";
 import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
@@ -321,7 +321,7 @@ function bindExpenseFormInteractions(form, trip) {
   baseInput?.addEventListener("input", () => syncAmounts("base"));
   rateInput?.addEventListener("input", () => syncAmounts(lastAmountSource));
 
-  const refreshSplitControls = () => {
+  const refreshSplitControls = (changedInput = null) => {
     const participantIds = [...form.querySelectorAll("[name='participantIds']:checked")].map((input) => input.value);
     const defaultWeights = buildDefaultRatioWeights(participantIds);
     const participantSet = new Set(participantIds);
@@ -343,7 +343,13 @@ function bindExpenseFormInteractions(form, trip) {
       if (isIncluded && !input.value) input.value = String(defaultWeights[memberId] ?? 0);
     });
 
-    const rawValues = readSplitValuesFromForm(form);
+    let rawValues = readSplitValuesFromForm(form);
+    if (changedInput?.dataset?.splitValue && participantSet.has(changedInput.dataset.splitValue)) {
+      rawValues = rebalanceRatioWeights(participantIds, rawValues, changedInput.dataset.splitValue, changedInput.value);
+      form.querySelectorAll("[data-split-value]").forEach((input) => {
+        if (participantSet.has(input.dataset.splitValue)) input.value = String(rawValues[input.dataset.splitValue] ?? 0);
+      });
+    }
     const preview = buildSplitPreview(participantIds, "ratio", rawValues);
     form.querySelectorAll("[data-split-row]").forEach((row) => {
       const memberId = row.dataset.splitMember;
@@ -354,10 +360,11 @@ function bindExpenseFormInteractions(form, trip) {
   };
 
   form.addEventListener("input", (event) => {
-    if (event.target.matches("[data-split-value]")) refreshSplitControls();
+    if (event.target.matches("[data-split-value]")) refreshSplitControls(event.target);
   });
   form.addEventListener("change", (event) => {
-    if (event.target.matches("[name='participantIds'], [data-split-value]")) refreshSplitControls();
+    if (event.target.matches("[name='participantIds']")) refreshSplitControls();
+    if (event.target.matches("[data-split-value]")) refreshSplitControls(event.target);
   });
   refreshSplitControls();
 }
