@@ -16,7 +16,13 @@ export function createDefaultAccessSettings() {
 
 export async function loadAccessSettings(user) {
   if (hasFirebaseConfig()) {
-    const remoteSettings = await readAccessSettings();
+    let remoteSettings = null;
+    try {
+      remoteSettings = await readAccessSettings();
+    } catch (error) {
+      if (isPermissionDenied(error)) return null;
+      throw error;
+    }
     if (!remoteSettings && !canManageAccess(user, null)) return null;
     const settings = normalizeAccessSettings(remoteSettings);
     if (!remoteSettings || hasAccessSettingsChanged(remoteSettings, settings)) await writeAccessSettings(settings);
@@ -136,4 +142,10 @@ function hasAccessSettingsChanged(rawSettings, normalizedSettings) {
   return ["googleWhitelist", "memberEmails", "adminEmails"].some((key) =>
     JSON.stringify(normalizeEmailList(rawSettings?.[key])) !== JSON.stringify(normalizedSettings[key] ?? []),
   );
+}
+
+function isPermissionDenied(error) {
+  return error?.code === "permission-denied" ||
+    error?.code === "firestore/permission-denied" ||
+    String(error?.message || "").includes("permission-denied");
 }

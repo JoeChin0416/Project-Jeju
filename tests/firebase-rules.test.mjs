@@ -12,6 +12,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import {
+  deleteObject,
   getBytes,
   ref,
   uploadBytes,
@@ -143,16 +144,35 @@ test("personal packing can only be read and written by its owner", async () => {
   await assertFails(getDoc(doc(passwordUser("user-b").firestore(), ownerPath)));
 });
 
-test("only allowed trip users can manage access settings", async () => {
+test("only owners and admins can manage access settings", async () => {
+  await assertSucceeds(getDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath)));
+  await assertFails(getDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), accessPath)));
+
   await assertSucceeds(setDoc(doc(ownerUser().firestore(), accessPath), {
-    settings: { googleWhitelist: ["friend@gmail.com"], memberEmails: ["member@example.com"], adminEmails: [ownerEmail] },
+    settings: {
+      googleWhitelist: ["friend@gmail.com"],
+      memberEmails: ["member@example.com"],
+      adminEmails: [ownerEmail, "admin@example.com"],
+    },
   }));
-  await assertSucceeds(setDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath), {
+
+  await assertSucceeds(setDoc(doc(passwordUser("admin").firestore(), accessPath), {
+    settings: {
+      googleWhitelist: ["friend@gmail.com"],
+      memberEmails: ["member@example.com"],
+      adminEmails: [ownerEmail, "admin@example.com"],
+    },
+  }));
+  await assertFails(setDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath), {
     settings: { googleWhitelist: ["friend@gmail.com"], memberEmails: ["friend@gmail.com"], adminEmails: [ownerEmail] },
+  }));
+  await assertFails(setDoc(doc(passwordUser("member").firestore(), accessPath), {
+    settings: { googleWhitelist: ["member@example.com"], memberEmails: ["member@example.com"], adminEmails: [ownerEmail] },
   }));
   await assertFails(setDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), accessPath), {
     settings: { googleWhitelist: ["stranger@gmail.com"], memberEmails: ["stranger@gmail.com"], adminEmails: [ownerEmail] },
   }));
+  await assertFails(deleteDoc(doc(ownerUser().firestore(), accessPath)));
 });
 
 test("storage accepts shared trip images from allowed users only", async () => {
@@ -167,4 +187,16 @@ test("storage accepts shared trip images from allowed users only", async () => {
   await assertSucceeds(uploadBytes(allowedGoogleRef, image, { contentType: "image/jpeg" }));
   await assertFails(uploadBytes(blockedRef, image, { contentType: "image/jpeg" }));
   await assertFails(uploadBytes(invalidRef, image, { contentType: "text/plain" }));
+});
+
+test("only owners and admins can delete shared trip images", async () => {
+  const image = new Uint8Array([255, 216, 255, 217]);
+  const photoPath = "trips/jeju/parking/car-1/member-photo.jpg";
+  const memberRef = ref(passwordUser("member").storage(), photoPath);
+  const friendRef = ref(googleUser("friend", "friend@gmail.com").storage(), photoPath);
+  const ownerRef = ref(ownerUser().storage(), photoPath);
+
+  await assertSucceeds(uploadBytes(memberRef, image, { contentType: "image/jpeg" }));
+  await assertFails(deleteObject(friendRef));
+  await assertSucceeds(deleteObject(ownerRef));
 });

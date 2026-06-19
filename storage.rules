@@ -62,7 +62,8 @@ service firebase.storage {
     }
 
     match /trips/{tripId}/{allPaths=**} {
-      allow read, delete: if sharedTripUserIsAllowed();
+      allow read: if sharedTripUserIsAllowed();
+      allow delete: if isOwner() || isAdmin();
       allow create, update: if sharedTripUserIsAllowed() && validImageUpload();
     }
 

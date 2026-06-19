@@ -10,10 +10,10 @@ export async function initializeFirebaseRuntime() {
   if (firebaseRuntime) return firebaseRuntime;
 
   const [{ initializeApp }, { getAuth }, { getFirestore }, { getStorage }] = await Promise.all([
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js"),
+    import("firebase/app"),
+    import("firebase/auth"),
+    import("firebase/firestore"),
+    import("firebase/storage"),
   ]);
 
   const app = initializeApp(firebaseConfig);

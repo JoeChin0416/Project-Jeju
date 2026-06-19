@@ -13,7 +13,7 @@ export async function uploadJournalPhoto(blob, options = {}) {
     };
   }
 
-  const { ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js");
+  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
   const path = [
     "trips",
     safePathSegment(options.tripId || "default-trip"),
@@ -59,7 +59,7 @@ export async function deleteJournalPhoto(photoPath) {
   const runtime = await initializeFirebaseRuntime();
   if (runtime.mode !== "firebase" || !runtime.storage) return;
 
-  const { ref, deleteObject } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js");
+  const { ref, deleteObject } = await import("firebase/storage");
   await deleteObject(ref(runtime.storage, photoPath));
 }
 
@@ -85,7 +85,7 @@ async function uploadTripPhoto(blob, options = {}) {
     };
   }
 
-  const { ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js");
+  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
   const path = [
     "trips",
     safePathSegment(options.tripId || "default-trip"),

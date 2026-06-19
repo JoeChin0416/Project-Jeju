@@ -218,7 +218,7 @@ function renderTranslationResult() {
 function renderTranslationPreview(translations) {
   return `
     <div class="translation-preview">
-      <img src="${state.imagePreviewUrl}" alt="${T.resultTitle}" />
+      <img src="${escapeHtml(state.imagePreviewUrl)}" alt="${T.resultTitle}" />
       ${translations.map((entry) => {
         const left = entry.box.x / 10;
         const top = entry.box.y / 10;
@@ -251,7 +251,7 @@ function renderReceiptDraft(trip) {
         <span class="pill">${escapeHtml(draft.currency)}</span>
       </div>
       ${draft.isDemo ? `<div class="status danger" style="margin-bottom:12px">${T.demo}</div>` : ""}
-      ${state.imagePreviewUrl ? `<img class="receipt-preview" src="${state.imagePreviewUrl}" alt="${T.previewAlt}" />` : ""}
+      ${state.imagePreviewUrl ? `<img class="receipt-preview" src="${escapeHtml(state.imagePreviewUrl)}" alt="${T.previewAlt}" />` : ""}
       <div class="form-grid">
         <div class="form-row">
           <div class="field"><label>${T.store}</label><input class="input" value="${escapeHtml(draft.merchantName)}" data-receipt-meta="merchantName" /></div>

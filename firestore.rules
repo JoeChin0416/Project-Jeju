@@ -55,10 +55,15 @@ service cloud.firestore {
       return isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser();
     }
 
+    function canManageAccessSettings() {
+      return isOwner() || isAdmin();
+    }
+
     match /sharedTrips/jeju-2026-girls/access/default {
-      allow read: if signedIn();
+      allow read: if sharedTripUserIsAllowed();
       allow create: if isOwner();
-      allow update, delete: if sharedTripUserIsAllowed();
+      allow update: if canManageAccessSettings();
+      allow delete: if false;
     }
 
     match /sharedTrips/jeju-2026-girls/stores/default {
