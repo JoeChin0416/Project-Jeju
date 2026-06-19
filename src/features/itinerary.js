@@ -13,6 +13,31 @@ export function buildNaverMapSearchUrl(...parts) {
   return `https://map.naver.com/p/search/${encodeURIComponent(buildPlaceSearchQuery(...parts))}`;
 }
 
+export function buildMapProviderUrls(item = {}, fallbackParts = []) {
+  const fallback = Array.isArray(fallbackParts) ? fallbackParts : [fallbackParts];
+  const naverFallback = buildNaverFallbackQuery(item, fallback);
+  return {
+    google: buildGoogleMapsSearchUrl(item.googleMapQuery || item.mapSearchQuery || buildPlaceSearchQuery(...fallback)),
+    naver: normalizeExternalMapUrl(item.naverMapUrl) || buildNaverMapSearchUrl(item.naverMapQuery || item.mapSearchQuery || naverFallback),
+  };
+}
+
+function buildNaverFallbackQuery(item, fallback) {
+  return buildPlaceSearchQuery(
+    item.address,
+    item.pickupAddress,
+    item.parkingLocation,
+    item.returnLocation,
+  ) || buildPlaceSearchQuery(...fallback);
+}
+
+function normalizeExternalMapUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^https?:\/\//i.test(text)) return text;
+  return "";
+}
+
 export function movePlaceWithinDay(places, placeId, direction) {
   const target = (places || []).find((place) => place.id === placeId);
   if (!target) return [...(places || [])];

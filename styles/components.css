@@ -121,6 +121,13 @@
   font-weight: 750;
 }
 
+.form-help {
+  margin: -2px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .input,
 .select,
 .textarea {

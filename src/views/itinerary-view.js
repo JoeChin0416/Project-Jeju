@@ -1,5 +1,5 @@
 import { getMood, normalizeMoodId, TRIP_MOODS } from "../features/moods.js";
-import { buildGoogleMapsSearchUrl, buildNaverMapSearchUrl, buildPlaceSearchQuery, movePlaceWithinDay } from "../features/itinerary.js";
+import { buildGoogleMapsSearchUrl, buildMapProviderUrls, buildNaverMapSearchUrl, buildPlaceSearchQuery, movePlaceWithinDay } from "../features/itinerary.js";
 import { getDailyWeather, getDepartureReminder } from "../features/travel-weather.js";
 import { normalizeRentalChecklist, toggleRentalChecklistItem } from "../features/rental-checklist.js";
 import { fetchTripWeather } from "../services/weather.js";
@@ -29,6 +29,11 @@ const T = {
   openMap: "開啟地圖",
   openNaverMap: "用 NAVER Map 開啟",
   mapSearch: "用 Google Maps 搜尋",
+  mapSearchInfo: "地圖搜尋設定",
+  googleMapQuery: "Google 搜尋字",
+  naverMapQuery: "Naver 搜尋字",
+  naverMapUrl: "Naver Map 連結",
+  mapSearchHint: "Naver 建議填韓文店名或韓文地址；私人住宿或多分店品牌可貼 Naver Map 連結保底。",
   moveUp: "上移",
   moveDown: "下移",
   edit: "編輯",
@@ -460,8 +465,7 @@ function renderDepartureReminder(reminder) {
 }
 
 function renderPlace(place, nextPlace, index, totalPlaces) {
-  const googleMapUrl = buildGoogleMapsSearchUrl(place.name, place.address);
-  const naverMapUrl = buildNaverMapSearchUrl(place.name, place.address);
+  const mapUrls = buildMapProviderUrls(place, [place.name, place.address]);
   const mood = getMood(place.moodId);
   return `
     <div class="timeline-place-row">
@@ -480,8 +484,8 @@ function renderPlace(place, nextPlace, index, totalPlaces) {
           <div class="place-side-actions">
             <button class="map-icon-button" type="button" data-move-place="${place.id}" data-move-direction="up" aria-label="${T.moveUp}" ${index === 0 ? "disabled" : ""}>${arrowUpIcon()}</button>
             <button class="map-icon-button" type="button" data-move-place="${place.id}" data-move-direction="down" aria-label="${T.moveDown}" ${index >= totalPlaces - 1 ? "disabled" : ""}>${arrowDownIcon()}</button>
-            <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapIcon()}</a>
-            <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
+            <a class="map-icon-button" href="${escapeHtml(mapUrls.google)}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapIcon()}</a>
+            <a class="map-icon-button naver-map-button" href="${escapeHtml(mapUrls.naver)}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
             <button class="action-pill" type="button" data-edit-place="${place.id}">${T.edit}</button>
             <button class="action-pill danger" type="button" data-delete-place="${place.id}">${T.delete}</button>
           </div>
@@ -503,8 +507,7 @@ function renderLodgings(trip) {
 }
 
 function renderLodgingCard(item) {
-  const googleMapUrl = buildGoogleMapsSearchUrl(item.name, item.address);
-  const naverMapUrl = buildNaverMapSearchUrl(item.name, item.address);
+  const mapUrls = buildMapProviderUrls(item, [item.name, item.address]);
   return `
     <article class="lodging-card">
       <div class="lodging-main">
@@ -519,8 +522,8 @@ function renderLodgingCard(item) {
         ${item.notes ? `<small>${escapeHtml(item.notes)}</small>` : ""}
       </div>
       <div class="place-side-actions">
-        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
-        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
+        <a class="map-icon-button" href="${escapeHtml(mapUrls.google)}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${escapeHtml(mapUrls.naver)}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         <button class="action-pill" type="button" data-edit-lodging="${item.id}">${T.edit}</button>
         <button class="action-pill danger" type="button" data-delete-lodging="${item.id}">${T.delete}</button>
       </div>
@@ -573,8 +576,7 @@ function renderFlightCard(item, type) {
 
 function renderRentalCarCard(item, type) {
   const title = item.rentalCompany || item.provider || T.rentalCar;
-  const googleMapUrl = buildGoogleMapsSearchUrl(item.pickupLocation || item.origin || title, item.pickupAddress);
-  const naverMapUrl = buildNaverMapSearchUrl(item.pickupLocation || item.origin || title, item.pickupAddress);
+  const mapUrls = buildMapProviderUrls(item, [item.pickupLocation || item.origin || title, item.pickupAddress]);
   const checklist = normalizeRentalChecklist(item.rentalChecklist);
   const completedChecks = checklist.filter((entry) => entry.checked).length;
   return `
@@ -604,8 +606,8 @@ function renderRentalCarCard(item, type) {
         </div>
       </button>
       <div class="transport-actions">
-        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
-        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
+        <a class="map-icon-button" href="${escapeHtml(mapUrls.google)}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${escapeHtml(mapUrls.naver)}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         ${transportActionButtons(item)}
       </div>
     </article>
@@ -614,8 +616,7 @@ function renderRentalCarCard(item, type) {
 
 function renderTaxiCard(item, type) {
   const title = item.taxiCompany || item.provider || T.taxi;
-  const googleMapUrl = buildGoogleMapsSearchUrl(item.pickupLocation || item.origin, item.dropoffLocation || item.destination);
-  const naverMapUrl = buildNaverMapSearchUrl(item.pickupLocation || item.origin, item.dropoffLocation || item.destination);
+  const mapUrls = buildMapProviderUrls(item, [item.pickupLocation || item.origin || title, item.dropoffLocation || item.destination]);
   return `
     <article class="transport-card taxi-card">
       <button class="transport-card-main" type="button" data-view-transport="${item.id}" aria-label="${T.viewDetail}">
@@ -637,8 +638,8 @@ function renderTaxiCard(item, type) {
         </div>
       </button>
       <div class="transport-actions">
-        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
-        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
+        <a class="map-icon-button" href="${escapeHtml(mapUrls.google)}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${escapeHtml(mapUrls.naver)}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         ${transportActionButtons(item)}
       </div>
     </article>
@@ -661,8 +662,7 @@ function renderParkingSummary(item) {
 
 function renderCustomTransportCard(item, type) {
   const title = item.title || item.provider || item.customCategoryName || T.customInfo;
-  const googleMapUrl = buildGoogleMapsSearchUrl(item.origin, item.destination);
-  const naverMapUrl = buildNaverMapSearchUrl(item.origin, item.destination);
+  const mapUrls = buildMapProviderUrls(item, [item.origin || title, item.destination]);
   return `
     <article class="transport-card custom-transport-card">
       <button class="transport-card-main" type="button" data-view-transport="${item.id}" aria-label="${T.viewDetail}">
@@ -679,8 +679,8 @@ function renderCustomTransportCard(item, type) {
         </div>
       </button>
       <div class="transport-actions">
-        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
-        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
+        <a class="map-icon-button" href="${escapeHtml(mapUrls.google)}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${escapeHtml(mapUrls.naver)}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         ${transportActionButtons(item)}
       </div>
     </article>
@@ -759,6 +759,7 @@ function renderPlaceSheet(trip) {
           ${fieldSelect(T.day, "dayId", getSortedDays(trip).map((day) => ({ value: day.id, label: day.date })), editing?.dayId || activeDay?.id)}
           ${field(T.placeName, "name", editing?.name, { placeholder: "Olive Young Jeju Tapdong Branch", required: true })}
           ${field(T.address, "address", editing?.address, { placeholder: "Google Maps 景點名稱或地址" })}
+          ${renderMapSearchFields(editing)}
           ${fieldSelect(T.mood, "moodId", [{ value: "", label: T.noMood }, ...TRIP_MOODS.map((mood) => ({ value: mood.id, label: mood.label }))], editing?.moodId || "")}
           ${fieldTextarea(T.notes, "notes", editing?.notes)}
           <button class="button primary full" type="submit">${T.save}</button>
@@ -779,6 +780,7 @@ function renderLodgingSheet(trip) {
           <button class="button secondary full" type="button" data-map-search-form>${T.mapSearch}</button>
           ${field(T.lodging, "name", editing?.name, { placeholder: "Bayview Hotel Jeju", required: true })}
           ${field(T.address, "address", editing?.address)}
+          ${renderMapSearchFields(editing)}
           <div class="form-row">
             ${field(T.checkIn, "checkInAt", toDatetimeLocal(editing?.checkInAt), { type: "datetime-local" })}
             ${field(T.checkOut, "checkOutAt", toDatetimeLocal(editing?.checkOutAt), { type: "datetime-local" })}
@@ -893,6 +895,7 @@ function renderRentalCarForm(editing) {
       ${field(T.returnAt, "returnAt", toDatetimeLocal(editing?.returnAt || editing?.arriveAt), { type: "datetime-local" })}
     </div>
     ${field(T.pickupAddress, "pickupAddress", editing?.pickupAddress)}
+    ${renderMapSearchFields(editing)}
     <div class="form-row">
       ${field(T.rentalRate, "rentalRate", editing?.rentalRate, { placeholder: "KRW 80,000 / day" })}
       ${field(T.plateNumber, "plateNumber", editing?.plateNumber || editing?.code)}
@@ -933,6 +936,7 @@ function renderTaxiForm(editing) {
       ${field(T.driverContact, "driverContact", editing?.driverContact || editing?.contact)}
       ${field(T.bookingCode, "taxiBookingCode", editing?.bookingCode || editing?.code)}
     </div>
+    ${renderMapSearchFields(editing)}
   `;
 }
 
@@ -950,7 +954,18 @@ function renderCustomTransportForm(editing) {
       ${field(T.startPoint, "customOrigin", editing?.origin)}
       ${field(T.destination, "customDestination", editing?.destination)}
     </div>
+    ${renderMapSearchFields(editing)}
     ${field(T.bookingCode, "customBookingCode", editing?.bookingCode || editing?.code)}
+  `;
+}
+
+function renderMapSearchFields(editing) {
+  return `
+    <div class="transport-form-section-title">${T.mapSearchInfo}</div>
+    <p class="form-help">${T.mapSearchHint}</p>
+    ${field(T.googleMapQuery, "googleMapQuery", editing?.googleMapQuery, { placeholder: "152-11 Gwangnyeongpyeonghwa 2-gil, Aewol-eup, Jeju-si" })}
+    ${field(T.naverMapQuery, "naverMapQuery", editing?.naverMapQuery, { placeholder: "제주특별자치도 제주시 애월읍 광령평화2길 152-11 118동" })}
+    ${field(T.naverMapUrl, "naverMapUrl", editing?.naverMapUrl, { placeholder: "https://map.naver.com/..." })}
   `;
 }
 
@@ -1112,6 +1127,7 @@ function createPlacePayload(data) {
     dayId: data.dayId,
     name: data.name,
     address: data.address,
+    ...mapSearchPayload(data),
     notes: data.notes,
     moodId: normalizeMoodId(data.moodId),
   };
@@ -1121,6 +1137,7 @@ function createLodgingPayload(data) {
   return {
     name: data.name,
     address: data.address,
+    ...mapSearchPayload(data),
     checkInAt: data.checkInAt,
     checkOutAt: data.checkOutAt,
     bookingSource: data.bookingSource,
@@ -1132,7 +1149,7 @@ function createLodgingPayload(data) {
 
 function createTransportPayload(data) {
   const type = normalizeTransportType(data.type);
-  const common = { type, notes: data.notes };
+  const common = { type, ...mapSearchPayload(data), notes: data.notes };
   if (type === "flight") {
     return {
       ...common,
@@ -1217,6 +1234,14 @@ function createTransportPayload(data) {
   };
 }
 
+function mapSearchPayload(data) {
+  return {
+    googleMapQuery: data.googleMapQuery,
+    naverMapQuery: data.naverMapQuery,
+    naverMapUrl: data.naverMapUrl,
+  };
+}
+
 function getSortedDays(trip) {
   return [...(trip.itineraryDays || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.date).localeCompare(String(b.date)));
 }
@@ -1295,7 +1320,7 @@ function firstUsefulFlightValue(...values) {
 function openMapSearchFromForm(form) {
   if (!form) return;
   const data = formToObject(form);
-  const query = buildPlaceSearchQuery(
+  const query = data.googleMapQuery || buildPlaceSearchQuery(
     data.name || data.rentalCompany || data.taxiPickupLocation || data.airline || data.customOrigin,
     data.address || data.pickupAddress || data.returnLocation || data.dropoffLocation || data.customDestination,
   );
