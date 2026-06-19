@@ -1846,6 +1846,61 @@
   border-radius: var(--radius-md);
 }
 
+.receipt-allocation {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(17, 107, 99, 0.05);
+  border: 1px solid rgba(17, 107, 99, 0.12);
+  border-radius: var(--radius-md);
+}
+
+.receipt-allocation-head,
+.receipt-allocation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.receipt-allocation-head strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.receipt-allocation-head span,
+.receipt-allocation-row em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.receipt-allocation-grid {
+  display: grid;
+  gap: 7px;
+}
+
+.receipt-allocation-row span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.receipt-allocation-row input {
+  width: 92px;
+  min-height: 38px;
+  text-align: center;
+}
+
+.receipt-allocation-row input[readonly] {
+  color: var(--teal);
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .receipt-preview {
   width: 100%;
   max-height: 260px;

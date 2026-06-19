@@ -4,8 +4,11 @@ import assert from "node:assert/strict";
 import { createExpenseFromReceiptItem } from "../src/features/expenses.js";
 import { normalizeReceiptResult } from "../src/features/ocr-receipt.js";
 import {
+  buildReceiptItemSplit,
   calculateReceiptTotal,
   createBlankReceiptItem,
+  getReceiptItemAllocations,
+  updateReceiptItemAllocation,
   updateReceiptDraftItem,
   updateReceiptDraftMeta,
 } from "../src/features/receipt-draft.js";
@@ -99,4 +102,44 @@ test("creates accounting entries from edited receipt items", () => {
   assert.equal(expense.receiptPhotoPath, "receipts/batch-1.jpg");
   assert.equal(expense.receiptPhotoProvider, "firebase-storage");
   assert.deepEqual(expense.participantIds, ["member-a", "member-b"]);
+});
+
+test("defaults receipt item allocation quantity to the payer", () => {
+  const allocations = getReceiptItemAllocations(
+    { id: "water", quantity: 10, allocations: {} },
+    ["member-a", "member-b", "member-c"],
+    "member-a",
+  );
+
+  assert.deepEqual(allocations, { "member-a": 10, "member-b": 0, "member-c": 0 });
+});
+
+test("updates receipt item allocation quantities and imports them as split ratios", () => {
+  const draft = {
+    items: [
+      {
+        id: "water",
+        originalName: "Water",
+        translatedName: "礦泉水",
+        category: "日用品",
+        unitPrice: 1000,
+        quantity: 10,
+        subtotal: 10000,
+      },
+    ],
+  };
+
+  const members = ["member-a", "member-b", "member-c"];
+  const allocatedToB = updateReceiptItemAllocation(draft, "water", "member-b", 3, members, "member-a");
+  const allocatedToC = updateReceiptItemAllocation(allocatedToB, "water", "member-c", 5, members, "member-a");
+  const item = allocatedToC.items[0];
+  const split = buildReceiptItemSplit(item, members, "member-a");
+
+  assert.deepEqual(getReceiptItemAllocations(item, members, "member-a"), {
+    "member-a": 2,
+    "member-b": 3,
+    "member-c": 5,
+  });
+  assert.deepEqual(split.participantIds, ["member-a", "member-b", "member-c"]);
+  assert.deepEqual(split.splitValues, { "member-a": 2, "member-b": 3, "member-c": 5 });
 });

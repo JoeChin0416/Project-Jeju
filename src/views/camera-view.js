@@ -1,7 +1,7 @@
 ﻿import { EXPENSE_CATEGORIES } from "../features/expense-categories.js?v=20260604-qa-weather-ocr";
 import { createExpenseFromReceiptItem } from "../features/expenses.js";
-import { calculateReceiptTotal, createBlankReceiptItem, updateReceiptDraftItem, updateReceiptDraftMeta } from "../features/receipt-draft.js?v=20260604-qa-weather-ocr";
-import { buildDefaultRatioWeights, buildSplitValues } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { findMemberForUser } from "../features/members.js";
+import { buildReceiptItemSplit, calculateReceiptTotal, createBlankReceiptItem, getReceiptItemAllocations, updateReceiptItemAllocation, updateReceiptDraftItem, updateReceiptDraftMeta } from "../features/receipt-draft.js?v=20260604-qa-weather-ocr";
 import { recognizeReceiptImage, translateImageLayout } from "../services/ai.js";
 import { uploadReceiptPhoto } from "../services/storage.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
@@ -27,8 +27,10 @@ const T = {
   store: "\u5e97\u5bb6",
   date: "\u65e5\u671f",
   payer: "\u4ed8\u6b3e\u4eba",
-  participants: "分帳對象",
-  splitHint: "匯入後仍可在記帳頁逐筆調整付款人、分帳對象與分帳方式。",
+  splitHint: "每個品項都可以設定誰拿幾個；付款人欄位會自動承接剩餘數量。",
+  itemAllocation: "品項分配數量",
+  payerRemainder: "付款人剩餘",
+  itemQuantity: "品項數量",
   total: "\u5be6\u4ed8\u7e3d\u984d",
   original: "\u539f\u6587",
   zh: "\u4e2d\u6587",
@@ -108,10 +110,7 @@ export function cameraView(trip, render) {
         if (!state.ocrDraft) return;
         if (event.target.dataset.ocrPayer) {
           state.ocrPayerId = event.target.value;
-          return;
-        }
-        if (event.target.dataset.ocrParticipant) {
-          state.ocrParticipantIds = [...root.querySelectorAll("[data-ocr-participant]:checked")].map((input) => input.value);
+          render();
           return;
         }
         const metaField = event.target.dataset.receiptMeta;
@@ -122,6 +121,12 @@ export function cameraView(trip, render) {
         const field = event.target.dataset.receiptField;
         const id = event.target.dataset.receiptItem;
         if (field && id) state.ocrDraft = updateReceiptDraftItem(state.ocrDraft, id, field, event.target.value);
+        const allocationMemberId = event.target.dataset.receiptAllocationMember;
+        if (allocationMemberId && id) {
+          const memberIds = trip.members.map((member) => member.id);
+          state.ocrDraft = updateReceiptItemAllocation(state.ocrDraft, id, allocationMemberId, event.target.value, memberIds, state.ocrPayerId);
+          syncReceiptAllocationInputs(root, id, trip);
+        }
       };
 
       root.addEventListener("input", updateDraftFromField);
@@ -174,8 +179,7 @@ export function bindImageInput(render) {
           photoPath: uploaded?.photoPath || "",
           photoProvider: uploaded?.photoProvider || "",
         };
-        state.ocrPayerId = trip.members[0]?.id || "";
-        state.ocrParticipantIds = trip.members.map((member) => member.id);
+        state.ocrPayerId = findMemberForUser(trip.members, state.user)?.id || trip.members[0]?.id || "";
         state.receiptPhotoDraftUrl = state.ocrDraft.photoUrl;
         state.receiptPhotoDraftPath = state.ocrDraft.photoPath;
         state.receiptPhotoDraftProvider = state.ocrDraft.photoProvider;
@@ -241,9 +245,6 @@ function translationTextFromLayout(layout) {
 function renderReceiptDraft(trip) {
   const draft = state.ocrDraft;
   const selectedPayerId = state.ocrPayerId || trip.members[0]?.id || "";
-  const selectedParticipantIds = state.ocrParticipantIds?.length
-    ? state.ocrParticipantIds
-    : trip.members.map((member) => member.id);
   return `
     <section class="panel span-all">
       <div class="section-title">
@@ -262,14 +263,8 @@ function renderReceiptDraft(trip) {
           <div class="field"><label>${T.total}</label><input class="input" inputmode="decimal" value="${draft.total}" data-receipt-meta="total" /></div>
         </div>
       </div>
-      <div class="receipt-split-panel">
-        <div class="field">
-          <label>${T.participants}</label>
-          <div class="meta-row">${participantChecklist(trip, selectedParticipantIds)}</div>
-        </div>
-        <p class="helper-text">${T.splitHint}</p>
-      </div>
-      <div class="list" style="margin-top:14px">${draft.items.map(renderReceiptItem).join("")}</div>
+      <p class="helper-text">${T.splitHint}</p>
+      <div class="list" style="margin-top:14px">${draft.items.map((item) => renderReceiptItem(item, trip, selectedPayerId)).join("")}</div>
       <div class="receipt-summary"><span>${T.total}</span><strong>${draft.total} ${escapeHtml(draft.currency)}</strong></div>
       <div class="form-row" style="margin-top:14px">
         <button class="button secondary" type="button" data-add-receipt-row>${T.addItem}</button>
@@ -279,7 +274,7 @@ function renderReceiptDraft(trip) {
   `;
 }
 
-function renderReceiptItem(item) {
+function renderReceiptItem(item, trip, payerId) {
   return `
     <div class="receipt-item">
       <div class="receipt-item-grid">
@@ -292,7 +287,32 @@ function renderReceiptItem(item) {
         <div class="field"><label>${T.quantity}</label><input class="input" inputmode="decimal" value="${item.quantity}" data-receipt-item="${item.id}" data-receipt-field="quantity" /></div>
         <div class="field"><label>${T.subtotal}</label><input class="input" inputmode="decimal" value="${item.subtotal}" data-receipt-item="${item.id}" data-receipt-field="subtotal" /></div>
       </div>
+      ${renderReceiptAllocationControls(item, trip, payerId)}
       <button class="action-pill danger" type="button" data-delete-receipt-row="${item.id}">${T.deleteItem}</button>
+    </div>
+  `;
+}
+
+function renderReceiptAllocationControls(item, trip, payerId) {
+  const memberIds = trip.members.map((member) => member.id);
+  const allocations = getReceiptItemAllocations(item, memberIds, payerId);
+  return `
+    <div class="receipt-allocation" data-receipt-allocation="${escapeHtml(item.id)}">
+      <div class="receipt-allocation-head">
+        <strong>${T.itemAllocation}</strong>
+        <span>${T.itemQuantity} ${formatQuantity(item.quantity)}</span>
+      </div>
+      <div class="receipt-allocation-grid">
+        ${trip.members.map((member) => {
+          const isPayer = member.id === payerId;
+          return `
+            <label class="receipt-allocation-row">
+              <span>${escapeHtml(member.name)}${isPayer ? `<em>${T.payerRemainder}</em>` : ""}</span>
+              <input class="input" type="number" min="0" max="${escapeHtml(item.quantity)}" step="1" value="${escapeHtml(formatQuantity(allocations[member.id] || 0))}" data-receipt-item="${escapeHtml(item.id)}" data-receipt-allocation-member="${escapeHtml(member.id)}" ${isPayer ? "readonly" : ""} />
+            </label>
+          `;
+        }).join("")}
+      </div>
     </div>
   `;
 }
@@ -300,8 +320,6 @@ function renderReceiptItem(item) {
 function importReceipt(trip) {
   const validMemberIds = new Set(trip.members.map((member) => member.id));
   const payerId = state.ocrPayerId && validMemberIds.has(state.ocrPayerId) ? state.ocrPayerId : trip.members[0]?.id;
-  const chosenParticipantIds = (state.ocrParticipantIds || []).filter((id) => validMemberIds.has(id));
-  const participantIds = chosenParticipantIds.length ? chosenParticipantIds : trip.members.map((member) => member.id);
   const receiptItems = state.ocrDraft.items.filter((item) => Number(item.subtotal || 0) > 0 && (item.originalName || item.translatedName));
   if (receiptItems.length === 0) {
     state.error = T.noItems;
@@ -323,19 +341,23 @@ function importReceipt(trip) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    const expenses = receiptItems.map((item) => createExpenseFromReceiptItem(item, {
-      receiptBatchId,
-      currency: state.ocrDraft.currency,
-      exchangeRate: draft.exchangeRate,
-      payerId,
-      participantIds,
-      splitMode: "ratio",
-      splitValues: buildSplitValues(participantIds, "ratio", buildDefaultRatioWeights(participantIds), state.ocrDraft.total),
-      expenseDate: state.ocrDraft.receiptDate || draft.startDate,
-      receiptPhotoUrl: state.ocrDraft.photoUrl || state.receiptPhotoDraftUrl || "",
-      receiptPhotoPath: state.ocrDraft.photoPath || state.receiptPhotoDraftPath || "",
-      receiptPhotoProvider: state.ocrDraft.photoProvider || state.receiptPhotoDraftProvider || "",
-    }));
+    const memberIds = draft.members.map((member) => member.id);
+    const expenses = receiptItems.map((item) => {
+      const split = buildReceiptItemSplit(item, memberIds, payerId);
+      return createExpenseFromReceiptItem(item, {
+        receiptBatchId,
+        currency: state.ocrDraft.currency,
+        exchangeRate: draft.exchangeRate,
+        payerId,
+        participantIds: split.participantIds,
+        splitMode: "ratio",
+        splitValues: split.splitValues,
+        expenseDate: state.ocrDraft.receiptDate || draft.startDate,
+        receiptPhotoUrl: state.ocrDraft.photoUrl || state.receiptPhotoDraftUrl || "",
+        receiptPhotoPath: state.ocrDraft.photoPath || state.receiptPhotoDraftPath || "",
+        receiptPhotoProvider: state.ocrDraft.photoProvider || state.receiptPhotoDraftProvider || "",
+      });
+    });
     draft.expenseItems.push(...expenses);
     return draft;
   });
@@ -357,18 +379,21 @@ function memberSelect(trip, id, selectedId = "") {
   return `<select class="select" id="${id}" data-ocr-payer="1">${trip.members.map((member) => `<option value="${member.id}" ${member.id === selectedId ? "selected" : ""}>${escapeHtml(member.name)}</option>`).join("")}</select>`;
 }
 
-function participantChecklist(trip, selectedIds) {
-  const selected = new Set(selectedIds);
-  return trip.members
-    .map(
-      (member) => `
-        <label class="member-chip">
-          <input type="checkbox" value="${member.id}" data-ocr-participant="1" ${selected.has(member.id) ? "checked" : ""} />
-          ${escapeHtml(member.name)}
-        </label>
-      `,
-    )
-    .join("");
+function syncReceiptAllocationInputs(root, itemId, trip) {
+  const item = state.ocrDraft?.items.find((entry) => entry.id === itemId);
+  if (!item) return;
+  const memberIds = trip.members.map((member) => member.id);
+  const allocations = getReceiptItemAllocations(item, memberIds, state.ocrPayerId);
+  root.querySelectorAll("[data-receipt-allocation-member]").forEach((input) => {
+    if (input.dataset.receiptItem !== itemId) return;
+    input.value = formatQuantity(allocations[input.dataset.receiptAllocationMember] || 0);
+  });
+}
+
+function formatQuantity(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return "0";
+  return Number.isInteger(number) ? String(number) : String(Math.round(number * 100) / 100);
 }
 
 function cameraSvg() {
