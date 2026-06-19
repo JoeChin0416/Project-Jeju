@@ -299,6 +299,19 @@
   border-radius: 999px;
 }
 
+.map-icon-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.naver-map-button {
+  color: #fff;
+  background: #03c75a;
+  border-color: rgba(3, 199, 90, 0.36);
+  font-size: 14px;
+  font-weight: 900;
+}
+
 .map-icon-button svg {
   width: 18px;
   height: 18px;
@@ -1652,6 +1665,7 @@
   height: 40px;
   flex-shrink: 0;
   object-fit: cover;
+  background: #fff7fb;
   border: 2px solid #fff;
   border-radius: 999px;
   box-shadow: 0 0 0 1px var(--line);
@@ -1714,6 +1728,8 @@
 .avatar-preset img {
   width: 32px;
   height: 32px;
+  background: #fff7fb;
+  object-fit: cover;
   border-radius: 999px;
 }
 
@@ -1739,6 +1755,7 @@
   aspect-ratio: 1;
   justify-self: center;
   object-fit: cover;
+  background: #fff7fb;
   border: 6px solid #fff;
   border-radius: 999px;
   box-shadow: 0 18px 46px rgba(31, 45, 38, 0.16);

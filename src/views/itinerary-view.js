@@ -1,4 +1,5 @@
 import { getMood, normalizeMoodId, TRIP_MOODS } from "../features/moods.js";
+import { buildGoogleMapsSearchUrl, buildNaverMapSearchUrl, buildPlaceSearchQuery, movePlaceWithinDay } from "../features/itinerary.js";
 import { getDailyWeather, getDepartureReminder } from "../features/travel-weather.js";
 import { normalizeRentalChecklist, toggleRentalChecklistItem } from "../features/rental-checklist.js";
 import { fetchTripWeather } from "../services/weather.js";
@@ -26,7 +27,10 @@ const T = {
   editTransport: "編輯交通",
   station: "站",
   openMap: "開啟地圖",
+  openNaverMap: "用 NAVER Map 開啟",
   mapSearch: "用 Google Maps 搜尋",
+  moveUp: "上移",
+  moveDown: "下移",
   edit: "編輯",
   delete: "刪除",
   noData: "目前還沒有資料",
@@ -231,6 +235,16 @@ export function itineraryView(trip, render) {
           return;
         }
 
+        const movePlaceButton = event.target.closest("[data-move-place]");
+        if (movePlaceButton) {
+          state.store = updateActiveTrip(state.store, (draft) => {
+            draft.places = movePlaceWithinDay(draft.places, movePlaceButton.dataset.movePlace, movePlaceButton.dataset.moveDirection);
+            return draft;
+          });
+          render();
+          return;
+        }
+
         const editPlace = event.target.closest("[data-edit-place]")?.dataset.editPlace;
         const deletePlace = event.target.closest("[data-delete-place]")?.dataset.deletePlace;
         const editLodging = event.target.closest("[data-edit-lodging]")?.dataset.editLodging;
@@ -385,7 +399,6 @@ function renderDaySelector(trip, days, activeDay) {
             <button class="itinerary-day-tab ${day.id === activeDay?.id ? "is-active" : ""}" type="button" data-itinerary-day-tab="${day.id}">
               <span>Day ${index + 1}</span>
               <strong>${escapeHtml(day.date?.slice(5) || "")}</strong>
-              <em>${escapeHtml(day.title || "")}</em>
               <small>${places.length} ${T.station}</small>
             </button>
           `;
@@ -404,10 +417,10 @@ function renderDay(day, trip) {
       ${renderWeatherOutfit(day, dayIndex)}
       <article class="itinerary-day-card">
         <div class="itinerary-day-header">
-          <div><span>${escapeHtml(day.date)}</span><h3>${escapeHtml(day.title)}</h3></div>
+          <div><span>${escapeHtml(day.date)}</span></div>
           <strong>${places.length} ${T.station}</strong>
         </div>
-        <div class="itinerary-timeline">${places.map((place, index) => renderPlace(place, places[index + 1], index)).join("") || `<div class="empty">${T.noData}</div>`}</div>
+        <div class="itinerary-timeline">${places.map((place, index) => renderPlace(place, places[index + 1], index, places.length)).join("") || `<div class="empty">${T.noData}</div>`}</div>
       </article>
     </section>
   `;
@@ -446,8 +459,9 @@ function renderDepartureReminder(reminder) {
   `;
 }
 
-function renderPlace(place, nextPlace, index) {
-  const query = buildMapQuery(place.name, place.address);
+function renderPlace(place, nextPlace, index, totalPlaces) {
+  const googleMapUrl = buildGoogleMapsSearchUrl(place.name, place.address);
+  const naverMapUrl = buildNaverMapSearchUrl(place.name, place.address);
   const mood = getMood(place.moodId);
   return `
     <div class="timeline-place-row">
@@ -464,7 +478,10 @@ function renderPlace(place, nextPlace, index) {
         </div>
         <div class="place-side">
           <div class="place-side-actions">
-            <a class="map-icon-button" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapIcon()}</a>
+            <button class="map-icon-button" type="button" data-move-place="${place.id}" data-move-direction="up" aria-label="${T.moveUp}" ${index === 0 ? "disabled" : ""}>${arrowUpIcon()}</button>
+            <button class="map-icon-button" type="button" data-move-place="${place.id}" data-move-direction="down" aria-label="${T.moveDown}" ${index >= totalPlaces - 1 ? "disabled" : ""}>${arrowDownIcon()}</button>
+            <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapIcon()}</a>
+            <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
             <button class="action-pill" type="button" data-edit-place="${place.id}">${T.edit}</button>
             <button class="action-pill danger" type="button" data-delete-place="${place.id}">${T.delete}</button>
           </div>
@@ -486,7 +503,8 @@ function renderLodgings(trip) {
 }
 
 function renderLodgingCard(item) {
-  const query = buildMapQuery(item.name, item.address);
+  const googleMapUrl = buildGoogleMapsSearchUrl(item.name, item.address);
+  const naverMapUrl = buildNaverMapSearchUrl(item.name, item.address);
   return `
     <article class="lodging-card">
       <div class="lodging-main">
@@ -501,7 +519,8 @@ function renderLodgingCard(item) {
         ${item.notes ? `<small>${escapeHtml(item.notes)}</small>` : ""}
       </div>
       <div class="place-side-actions">
-        <a class="map-icon-button" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         <button class="action-pill" type="button" data-edit-lodging="${item.id}">${T.edit}</button>
         <button class="action-pill danger" type="button" data-delete-lodging="${item.id}">${T.delete}</button>
       </div>
@@ -554,7 +573,8 @@ function renderFlightCard(item, type) {
 
 function renderRentalCarCard(item, type) {
   const title = item.rentalCompany || item.provider || T.rentalCar;
-  const query = buildMapQuery(item.pickupLocation || item.origin || title, item.pickupAddress);
+  const googleMapUrl = buildGoogleMapsSearchUrl(item.pickupLocation || item.origin || title, item.pickupAddress);
+  const naverMapUrl = buildNaverMapSearchUrl(item.pickupLocation || item.origin || title, item.pickupAddress);
   const checklist = normalizeRentalChecklist(item.rentalChecklist);
   const completedChecks = checklist.filter((entry) => entry.checked).length;
   return `
@@ -584,7 +604,8 @@ function renderRentalCarCard(item, type) {
         </div>
       </button>
       <div class="transport-actions">
-        <a class="map-icon-button" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         ${transportActionButtons(item)}
       </div>
     </article>
@@ -593,7 +614,8 @@ function renderRentalCarCard(item, type) {
 
 function renderTaxiCard(item, type) {
   const title = item.taxiCompany || item.provider || T.taxi;
-  const query = buildMapQuery(item.pickupLocation || item.origin, item.dropoffLocation || item.destination);
+  const googleMapUrl = buildGoogleMapsSearchUrl(item.pickupLocation || item.origin, item.dropoffLocation || item.destination);
+  const naverMapUrl = buildNaverMapSearchUrl(item.pickupLocation || item.origin, item.dropoffLocation || item.destination);
   return `
     <article class="transport-card taxi-card">
       <button class="transport-card-main" type="button" data-view-transport="${item.id}" aria-label="${T.viewDetail}">
@@ -615,7 +637,8 @@ function renderTaxiCard(item, type) {
         </div>
       </button>
       <div class="transport-actions">
-        <a class="map-icon-button" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         ${transportActionButtons(item)}
       </div>
     </article>
@@ -638,7 +661,8 @@ function renderParkingSummary(item) {
 
 function renderCustomTransportCard(item, type) {
   const title = item.title || item.provider || item.customCategoryName || T.customInfo;
-  const query = buildMapQuery(item.origin, item.destination);
+  const googleMapUrl = buildGoogleMapsSearchUrl(item.origin, item.destination);
+  const naverMapUrl = buildNaverMapSearchUrl(item.origin, item.destination);
   return `
     <article class="transport-card custom-transport-card">
       <button class="transport-card-main" type="button" data-view-transport="${item.id}" aria-label="${T.viewDetail}">
@@ -655,7 +679,8 @@ function renderCustomTransportCard(item, type) {
         </div>
       </button>
       <div class="transport-actions">
-        <a class="map-icon-button" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button" href="${googleMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openMap}">${mapPinIcon()}</a>
+        <a class="map-icon-button naver-map-button" href="${naverMapUrl}" target="_blank" rel="noreferrer" aria-label="${T.openNaverMap}">N</a>
         ${transportActionButtons(item)}
       </div>
     </article>
@@ -731,7 +756,7 @@ function renderPlaceSheet(trip) {
         <div class="sheet-head"><h2>${title}</h2><button class="action-pill" type="button" data-close-sheet>${T.close}</button></div>
         <form class="form-grid smart-sheet" data-place-form>
           <button class="button secondary full" type="button" data-map-search-form>${T.mapSearch}</button>
-          ${fieldSelect(T.day, "dayId", getSortedDays(trip).map((day) => ({ value: day.id, label: `${day.date} ${day.title}` })), editing?.dayId || activeDay?.id)}
+          ${fieldSelect(T.day, "dayId", getSortedDays(trip).map((day) => ({ value: day.id, label: day.date })), editing?.dayId || activeDay?.id)}
           ${field(T.placeName, "name", editing?.name, { placeholder: "Olive Young Jeju Tapdong Branch", required: true })}
           ${field(T.address, "address", editing?.address, { placeholder: "Google Maps 景點名稱或地址" })}
           ${fieldSelect(T.mood, "moodId", [{ value: "", label: T.noMood }, ...TRIP_MOODS.map((mood) => ({ value: mood.id, label: mood.label }))], editing?.moodId || "")}
@@ -1028,14 +1053,16 @@ function renderRentalDetailItems(item) {
 
 function renderParkingDetail(item) {
   if (!hasParkingInfo(item)) return "";
-  const query = buildMapQuery(item.parkingName, item.parkingLocation);
+  const searchQuery = buildPlaceSearchQuery(item.parkingName, item.parkingLocation);
+  const googleMapUrl = buildGoogleMapsSearchUrl(item.parkingName, item.parkingLocation);
+  const naverMapUrl = buildNaverMapSearchUrl(item.parkingName, item.parkingLocation);
   return `
     <div class="parking-detail-card">
       <div class="parking-detail-copy">
         <span>${T.parkingInfo}</span>
         <h3>${escapeHtml(item.parkingName || T.parkingLocation)}</h3>
         <p>${escapeHtml(joinText(item.parkingLocation, item.parkingLevel) || T.noData)}</p>
-        ${query ? `<a class="button secondary" href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noreferrer">${T.openParkingMap}</a>` : ""}
+        ${searchQuery ? `<div class="meta-row"><a class="button secondary" href="${googleMapUrl}" target="_blank" rel="noreferrer">${T.openParkingMap}</a><a class="button secondary" href="${naverMapUrl}" target="_blank" rel="noreferrer">${T.openNaverMap}</a></div>` : ""}
       </div>
       ${item.parkingPhotoUrl ? `<a class="parking-photo-preview" href="${escapeHtml(item.parkingPhotoUrl)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(item.parkingPhotoUrl)}" alt="${T.parkingInfo}" /></a>` : ""}
     </div>
@@ -1268,11 +1295,11 @@ function firstUsefulFlightValue(...values) {
 function openMapSearchFromForm(form) {
   if (!form) return;
   const data = formToObject(form);
-  const query = buildMapQuery(
+  const query = buildPlaceSearchQuery(
     data.name || data.rentalCompany || data.taxiPickupLocation || data.airline || data.customOrigin,
     data.address || data.pickupAddress || data.returnLocation || data.dropoffLocation || data.customDestination,
   );
-  window.open(`https://www.google.com/maps/search/?api=1&query=${query || "Jeju"}`, "_blank", "noopener");
+  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || "Jeju")}`, "_blank", "noopener");
 }
 
 function hasParkingInfo(item) {
@@ -1343,10 +1370,6 @@ async function handleParkingPhotoFile(file, root, trip) {
     button?.removeAttribute("disabled");
     if (uploadCompleted && localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
   }
-}
-
-function buildMapQuery(...parts) {
-  return encodeURIComponent(parts.filter(Boolean).join(" "));
 }
 
 function detail(labelText, value) {
@@ -1426,6 +1449,14 @@ function mapIcon() {
 
 function mapPinIcon() {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
+}
+
+function arrowUpIcon() {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>`;
+}
+
+function arrowDownIcon() {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
 }
 
 function planeIcon() {

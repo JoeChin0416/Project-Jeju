@@ -43,6 +43,7 @@ const text = {
   presetAvatar: "預設頭像",
   uploadAvatar: "上傳照片",
   previewAvatar: "預覽頭像",
+  close: "關閉",
   addMember: "新增旅伴",
   memberName: "名稱",
   memberEmail: "Email",
