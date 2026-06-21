@@ -1,4 +1,10 @@
-import { OWNER_EMAILS, isOwnerEmail, isValidEmail, normalizeEmail } from "../features/members.js";
+import {
+  OWNER_EMAILS,
+  RETIRED_ACCOUNT_EMAILS,
+  isOwnerEmail,
+  isValidEmail,
+  normalizeEmail,
+} from "../features/members.js";
 import { readAccessSettings, writeAccessSettings } from "./db.js?v=20260604-qa-weather-ocr";
 import { hasFirebaseConfig } from "./firebase.js";
 
@@ -125,12 +131,14 @@ export function removeAccessEmail(settings, email) {
 }
 
 function normalizeAccessSettings(settings) {
+  const blockedEmails = [...OWNER_EMAILS, ...RETIRED_ACCOUNT_EMAILS];
   return {
     ...DEFAULT_ACCESS_SETTINGS,
     ...(settings ?? {}),
-    googleWhitelist: normalizeEmailList(settings?.googleWhitelist).filter((email) => !OWNER_EMAILS.includes(email)),
-    memberEmails: normalizeEmailList(settings?.memberEmails),
-    adminEmails: normalizeEmailList([...(settings?.adminEmails ?? []), ...OWNER_EMAILS]),
+    googleWhitelist: normalizeEmailList(settings?.googleWhitelist).filter((email) => !blockedEmails.includes(email)),
+    memberEmails: normalizeEmailList(settings?.memberEmails).filter((email) => !RETIRED_ACCOUNT_EMAILS.includes(email)),
+    adminEmails: normalizeEmailList([...(settings?.adminEmails ?? []), ...OWNER_EMAILS])
+      .filter((email) => !RETIRED_ACCOUNT_EMAILS.includes(email)),
   };
 }
 

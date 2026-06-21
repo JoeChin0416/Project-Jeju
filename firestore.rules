@@ -12,7 +12,11 @@ service cloud.firestore {
 
     function isOwner() {
       return signedIn()
-        && (signedInEmail() == "joe.chin@joe.com.tw" || signedInEmail() == "dpluschin0416@gmail.com");
+        && signedInEmail() == "dpluschin0416@gmail.com";
+    }
+
+    function isRetiredAccount() {
+      return signedIn() && signedInEmail() == "joe.chin@joe.com.tw";
     }
 
     function isPasswordUser() {
@@ -52,11 +56,12 @@ service cloud.firestore {
     }
 
     function sharedTripUserIsAllowed() {
-      return isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser();
+      return !isRetiredAccount()
+        && (isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser());
     }
 
     function canManageAccessSettings() {
-      return isOwner() || isAdmin();
+      return !isRetiredAccount() && (isOwner() || isAdmin());
     }
 
     match /sharedTrips/jeju-2026-girls/access/default {

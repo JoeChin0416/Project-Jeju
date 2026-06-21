@@ -5,8 +5,10 @@ import {
   createMemberForUser,
   findMemberForUser,
   isDefaultPlaceholderMemberSet,
+  isOwnerEmail,
   normalizeMemberEmails,
   removeMemberFromTrip,
+  removeRetiredMembersFromTrip,
 } from "../src/features/members.js";
 
 test("detects and removes the old A-E placeholder member set", () => {
@@ -74,4 +76,33 @@ test("member emails are normalized for access rules", () => {
     ]),
     ["a@example.com", "b@example.com"],
   );
+});
+
+test("retired test account is not treated as an owner", () => {
+  assert.equal(isOwnerEmail("joe.chin@joe.com.tw"), false);
+  assert.equal(isOwnerEmail("dpluschin0416@gmail.com"), true);
+});
+
+test("removes retired account roles from the trip and existing expenses", () => {
+  const trip = {
+    members: [
+      { id: "joe", name: "Joe test", email: "joe.chin@joe.com.tw" },
+      { id: "friend", name: "Friend", email: "friend@example.com" },
+    ],
+    expenseItems: [
+      {
+        id: "expense-1",
+        payerId: "joe",
+        participantIds: ["joe", "friend"],
+        splitValues: { joe: 1, friend: 1 },
+      },
+    ],
+  };
+
+  const cleaned = removeRetiredMembersFromTrip(trip);
+
+  assert.deepEqual(cleaned.members.map((member) => member.id), ["friend"]);
+  assert.equal(cleaned.expenseItems[0].payerId, "friend");
+  assert.deepEqual(cleaned.expenseItems[0].participantIds, ["friend"]);
+  assert.deepEqual(cleaned.expenseItems[0].splitValues, { friend: 1 });
 });

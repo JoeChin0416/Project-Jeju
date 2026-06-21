@@ -12,7 +12,11 @@ service firebase.storage {
 
     function isOwner() {
       return signedIn()
-        && (signedInEmail() == "joe.chin@joe.com.tw" || signedInEmail() == "dpluschin0416@gmail.com");
+        && signedInEmail() == "dpluschin0416@gmail.com";
+    }
+
+    function isRetiredAccount() {
+      return signedIn() && signedInEmail() == "joe.chin@joe.com.tw";
     }
 
     function isPasswordUser() {
@@ -52,7 +56,8 @@ service firebase.storage {
     }
 
     function sharedTripUserIsAllowed() {
-      return isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser();
+      return !isRetiredAccount()
+        && (isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser());
     }
 
     function validImageUpload() {

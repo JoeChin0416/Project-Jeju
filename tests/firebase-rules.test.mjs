@@ -75,6 +75,7 @@ test("shared trip is denied to guests and unlisted users", async () => {
   await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), sharedPath)));
   await assertFails(getDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), sharedPath)));
   await assertFails(getDoc(doc(passwordUser("stranger").firestore(), sharedPath)));
+  await assertFails(getDoc(doc(googleUser("retired-owner", "joe.chin@joe.com.tw").firestore(), sharedPath)));
 });
 
 test("Google access fails closed until settings exist and while whitelist is empty", async () => {

@@ -3,7 +3,7 @@ import { normalizeTravelNotes } from "../features/journal.js?v=20260604-qa-weath
 import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { PACKING_CATEGORIES, createDefaultPackingItems, createPersonalPackingItems } from "../features/packing.js?v=20260604-qa-weather-ocr";
 import { createRentalChecklist, normalizeRentalChecklist } from "../features/rental-checklist.js";
-import { isDefaultPlaceholderMemberSet } from "../features/members.js";
+import { isDefaultPlaceholderMemberSet, removeRetiredMembersFromTrip } from "../features/members.js";
 import {
   ensureUserProfile,
   readPersonalPacking,
@@ -47,8 +47,9 @@ export async function loadStoreForUser(user) {
       const store = normalizeStore(sharedStore || createSeedStore());
       await applyPersonalPacking(store, persistenceContext.uid);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-      if (!sharedStore || store.schemaVersion !== sharedStore.schemaVersion) {
-        await writeSharedStore(toSharedStore(store));
+      const sharedPayload = toSharedStore(store);
+      if (!sharedStore || JSON.stringify(sharedPayload) !== JSON.stringify(sharedStore)) {
+        await writeSharedStore(sharedPayload);
       }
       return store;
     } catch (error) {
@@ -151,10 +152,10 @@ function normalizeStore(store) {
       migratedTrip.packingItems.length < 10 ||
       !hasValidPackingItems(migratedTrip.packingItems);
 
-    return {
+    return removeRetiredMembersFromTrip({
       ...migratedTrip,
       packingItems: needsDefaultPacking ? createDefaultPackingItems(members) : migratedTrip.packingItems,
-    };
+    });
   });
   return store;
 }
