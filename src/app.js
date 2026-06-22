@@ -10,7 +10,7 @@ import {
   stopSharedStoreSubscription,
 } from "./state/trip-store.js?v=20260623-split-ratio-clear";
 import { bindImageInput, cameraView } from "./views/camera-view.js?v=20260623-split-ratio-clear";
-import { expensesView } from "./views/expenses-view.js?v=20260623-split-ratio-clear";
+import { expensesView } from "./views/expenses-view.js?v=20260623-ratio-status";
 import { itineraryView } from "./views/itinerary-view.js?v=20260623-split-ratio-clear";
 import { journalView } from "./views/journal-view.js?v=20260623-split-ratio-clear";
 import { packingView } from "./views/packing-view.js?v=20260623-split-ratio-clear";

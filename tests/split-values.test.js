@@ -7,6 +7,7 @@ import {
   buildSplitValues,
   readSplitValuesFromForm,
   shouldFillMissingRatioInput,
+  summarizeRatioAllocation,
 } from "../src/features/split-values.js";
 
 test("keeps equal split values empty", () => {
@@ -31,6 +32,21 @@ test("normalizes fixed split values and fills empty manual amounts equally", () 
 test("builds visible split percentages for equal and ratio modes", () => {
   assert.deepEqual(buildSplitPreview(["a", "b", "c"], "equal"), { a: 33, b: 33, c: 33 });
   assert.deepEqual(buildSplitPreview(["a", "b"], "ratio", { a: 3, b: 1 }), { a: 75, b: 25 });
+});
+
+test("summarizes manual ratio allocation progress", () => {
+  assert.deepEqual(summarizeRatioAllocation(["a", "b", "c"], { a: "25", b: "50", c: "" }), {
+    allocated: 75,
+    remaining: 25,
+    overAllocated: 0,
+    isOver: false,
+  });
+  assert.deepEqual(summarizeRatioAllocation(["a", "b"], { a: "70", b: "50" }), {
+    allocated: 120,
+    remaining: 0,
+    overAllocated: 20,
+    isOver: true,
+  });
 });
 
 test("reads ratio or fixed split values from the matching controls only", () => {

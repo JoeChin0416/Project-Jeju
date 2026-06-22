@@ -48,6 +48,18 @@ export function buildSplitPreview(participantIds, mode = "equal", rawValues = {}
   return Object.fromEntries(ids.map((id) => [id, share]));
 }
 
+export function summarizeRatioAllocation(participantIds, rawValues = {}) {
+  const ids = [...new Set(participantIds ?? [])];
+  const allocated = roundPercent(ids.reduce((sum, id) => sum + Math.max(0, Number(rawValues[id] || 0)), 0));
+  const diff = roundPercent(100 - allocated);
+  return {
+    allocated,
+    remaining: Math.max(0, diff),
+    overAllocated: Math.max(0, -diff),
+    isOver: diff < 0,
+  };
+}
+
 export function readSplitValuesFromForm(form, mode = "ratio") {
   const selector = mode === "fixed" ? "[data-split-fixed-value]" : "[data-split-ratio-value], [data-split-value]";
   return [...form.querySelectorAll(selector)]

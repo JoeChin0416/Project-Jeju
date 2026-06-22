@@ -3,7 +3,7 @@ import { buildCategoryPieGradient, summarizeDailySpending } from "../features/ex
 import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses.js";
 import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260623-split-ratio-clear";
 import { calculateSettlement } from "../features/settlement.js";
-import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, shouldFillMissingRatioInput } from "../features/split-values.js?v=20260623-split-ratio-clear";
+import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, shouldFillMissingRatioInput, summarizeRatioAllocation } from "../features/split-values.js?v=20260623-ratio-status";
 import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
@@ -55,6 +55,9 @@ const T = {
   allocated: "已分配",
   remaining: "剩餘",
   overAllocated: "超出",
+  ratioAllocated: "已分配比例",
+  ratioRemaining: "剩餘比例",
+  ratioOverAllocated: "超出比例",
   save: "\u5132\u5b58",
   close: "\u95dc\u9589",
   edit: "\u7de8\u8f2f",
@@ -420,7 +423,16 @@ function bindExpenseFormInteractions(form, trip) {
 
     const status = form.querySelector("[data-split-total-status]");
     if (status) {
-      status.classList.toggle("is-hidden", splitMode !== "fixed");
+      status.classList.toggle("is-hidden", splitMode !== "fixed" && splitMode !== "ratio");
+      status.classList.remove("is-over");
+      if (splitMode === "ratio") {
+        const ratioValues = readSplitValuesFromForm(form, "ratio");
+        const summary = summarizeRatioAllocation(participantIds, ratioValues);
+        status.classList.toggle("is-over", summary.isOver);
+        status.textContent = summary.isOver
+          ? `${T.ratioAllocated} ${summary.allocated}% / ${T.ratioOverAllocated} ${summary.overAllocated}%`
+          : `${T.ratioAllocated} ${summary.allocated}% / ${T.ratioRemaining} ${summary.remaining}%`;
+      }
       if (splitMode === "fixed") {
         const totalBase = parseFiniteNumber(baseInput?.value) ?? 0;
         const fixedValues = readSplitValuesFromForm(form, "fixed");
