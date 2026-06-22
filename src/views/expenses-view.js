@@ -3,7 +3,7 @@ import { buildCategoryPieGradient, summarizeDailySpending } from "../features/ex
 import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses.js";
 import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
 import { calculateSettlement } from "../features/settlement.js";
-import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, rebalanceRatioWeights } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
 import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
@@ -47,7 +47,7 @@ const T = {
   splitRatio: "比例",
   splitFixed: "指定金額",
   splitEqualHelp: "依勾選人數平均分攤。",
-  splitRatioHelp: "滑桿是權重，只會改變正在操作的人；實際比例會自動換算。",
+  splitRatioHelp: "直接輸入每個人的比例數字；實際分攤比例會自動換算。",
   splitFixedHelp: "直接輸入每個人要分攤的台幣金額。",
   notShared: "不分帳",
   equalShare: "平均分攤",
@@ -332,7 +332,7 @@ function renderSplitControls(trip, participants, splitValues = {}, splitMode = "
           <label class="split-value-row ${isIncluded ? "" : "is-disabled"}" data-split-row data-split-member="${member.id}">
             <span>${escapeHtml(member.name)}<em data-split-percent>${percent}</em></span>
             <div class="split-input-stack">
-              <input class="input split-value-input split-ratio-input is-range ${splitMode === "ratio" ? "" : "is-hidden"}" type="range" min="0" max="100" step="1" data-split-ratio-value="${member.id}" value="${escapeHtml(ratioValue)}" ${isIncluded && splitMode === "ratio" ? "" : "disabled"} />
+              <input class="input split-value-input split-ratio-input ${splitMode === "ratio" ? "" : "is-hidden"}" type="number" inputmode="decimal" min="0" max="100" step="1" data-split-ratio-value="${member.id}" value="${escapeHtml(ratioValue)}" ${isIncluded && splitMode === "ratio" ? "" : "disabled"} />
               <input class="input split-value-input split-fixed-input ${splitMode === "fixed" ? "" : "is-hidden"}" type="number" inputmode="decimal" min="0" step="1" data-split-fixed-value="${member.id}" value="${escapeHtml(fixedValue)}" ${isIncluded && splitMode === "fixed" ? "" : "disabled"} />
               <strong class="split-equal-label ${splitMode === "equal" ? "" : "is-hidden"}" data-split-equal-label>${T.equalShare}</strong>
             </div>
@@ -406,12 +406,6 @@ function bindExpenseFormInteractions(form, trip) {
     });
 
     let rawValues = readSplitValuesFromForm(form, splitMode);
-    if (changedInput?.dataset?.splitRatioValue && participantSet.has(changedInput.dataset.splitRatioValue)) {
-      rawValues = rebalanceRatioWeights(participantIds, readSplitValuesFromForm(form, "ratio"), changedInput.dataset.splitRatioValue, changedInput.value);
-      form.querySelectorAll("[data-split-ratio-value]").forEach((input) => {
-        if (participantSet.has(input.dataset.splitRatioValue)) input.value = String(rawValues[input.dataset.splitRatioValue] ?? 0);
-      });
-    }
     const preview = buildSplitPreview(participantIds, splitMode, rawValues);
     form.querySelectorAll("[data-split-row]").forEach((row) => {
       const memberId = row.dataset.splitMember;

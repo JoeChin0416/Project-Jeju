@@ -27,21 +27,6 @@ export function buildDefaultRatioWeights(participantIds) {
   return Object.fromEntries(ids.map((id) => [id, share]));
 }
 
-export function rebalanceRatioWeights(participantIds, rawValues = {}, changedId, changedValue) {
-  const ids = [...new Set(participantIds ?? [])];
-  if (ids.length === 0) return {};
-  if (!ids.includes(changedId)) return buildDefaultRatioWeights(ids);
-  if (ids.length === 1) return { [ids[0]]: 100 };
-
-  const changedPercent = clampPercent(changedValue);
-  return Object.fromEntries(
-    ids.map((id) => [
-      id,
-      id === changedId ? changedPercent : clampPercent(rawValues[id] ?? 0),
-    ]),
-  );
-}
-
 export function buildSplitPreview(participantIds, mode = "equal", rawValues = {}) {
   const ids = [...new Set(participantIds ?? [])];
   if (ids.length === 0) return {};
@@ -80,8 +65,3 @@ function roundMoney(value) {
 function roundPercent(value) {
   return Math.round(Number(value || 0));
 }
-
-function clampPercent(value) {
-  return Math.max(0, Math.min(100, roundPercent(value)));
-}
-

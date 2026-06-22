@@ -2063,14 +2063,7 @@
   min-width: 0;
 }
 
-.split-value-input[type="range"] {
-  min-height: 30px;
-  padding: 0;
-  accent-color: var(--teal);
-  background: transparent;
-  border: 0;
-}
-
+.split-ratio-input,
 .split-fixed-input {
   min-height: 34px;
   padding: 7px 9px;

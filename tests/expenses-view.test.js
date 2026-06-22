@@ -53,3 +53,55 @@ test("expense sheet offers equal ratio and fixed amount split modes", async () =
 
   state.modal = null;
 });
+
+test("ratio split uses manual percentage inputs instead of sliders", async () => {
+  globalThis.localStorage = globalThis.localStorage ?? {
+    getItem: () => "",
+    setItem: () => {},
+    removeItem: () => {},
+  };
+
+  const [{ expensesView }, { state }] = await Promise.all([
+    import("../src/views/expenses-view.js"),
+    import("../src/state/app-state.js"),
+  ]);
+
+  state.modal = { type: "expense", mode: "edit", id: "expense-ratio", expenseDate: "2026-06-21" };
+  const trip = {
+    id: "trip",
+    startDate: "2026-06-21",
+    tripCurrency: "KRW",
+    exchangeRate: 0.024,
+    itineraryDays: [{ id: "day-1", date: "2026-06-21", title: "Day 1" }],
+    receiptBatches: [],
+    members: [
+      { id: "a", name: "A", color: "#116b63" },
+      { id: "b", name: "B", color: "#ee6b4d" },
+    ],
+    expenseItems: [
+      {
+        id: "expense-ratio",
+        translatedName: "Coffee",
+        category: "Food",
+        totalOriginal: 10000,
+        totalBase: 240,
+        currency: "KRW",
+        exchangeRate: 0.024,
+        payerId: "a",
+        participantIds: ["a", "b"],
+        splitMode: "ratio",
+        splitValues: { a: 70, b: 30 },
+        expenseDate: "2026-06-21",
+      },
+    ],
+  };
+
+  const view = expensesView(trip, () => {});
+
+  assert.match(view.html, /name="splitMode" value="ratio" checked/);
+  assert.match(view.html, /type="number"[^>]*data-split-ratio-value="a"[^>]*value="70"/);
+  assert.match(view.html, /type="number"[^>]*data-split-ratio-value="b"[^>]*value="30"/);
+  assert.doesNotMatch(view.html, /type="range"[^>]*data-split-ratio-value/);
+
+  state.modal = null;
+});
