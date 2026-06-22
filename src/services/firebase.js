@@ -1,4 +1,4 @@
-﻿import { firebaseConfig, hasFirebaseConfig } from "../config/firebase-config.js?v=20260604-qa-weather-ocr";
+import { firebaseConfig, hasFirebaseConfig } from "../config/firebase-config.js?v=20260623-split-ratio-clear";
 
 let firebaseRuntime = null;
 

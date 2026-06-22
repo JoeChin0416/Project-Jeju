@@ -1,12 +1,12 @@
-﻿import { EXPENSE_CATEGORIES, normalizeExpenseCategory } from "../features/expense-categories.js?v=20260604-qa-weather-ocr";
+import { EXPENSE_CATEGORIES, normalizeExpenseCategory } from "../features/expense-categories.js?v=20260623-split-ratio-clear";
 import { buildCategoryPieGradient, summarizeDailySpending } from "../features/expense-dashboard.js";
 import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses.js";
-import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
+import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260623-split-ratio-clear";
 import { calculateSettlement } from "../features/settlement.js";
-import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, shouldFillMissingRatioInput } from "../features/split-values.js?v=20260604-qa-weather-ocr";
-import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
+import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, shouldFillMissingRatioInput } from "../features/split-values.js?v=20260623-split-ratio-clear";
+import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
 import { formatCurrency } from "../utils/currency.js";
 import { escapeHtml, formToObject } from "../utils/dom.js";
 
@@ -400,7 +400,10 @@ function bindExpenseFormInteractions(form, trip) {
       equalLabel?.classList.toggle("is-hidden", splitMode !== "equal");
       if (ratioInput) {
         ratioInput.disabled = !isIncluded || splitMode !== "ratio";
-        if (isIncluded && shouldFillMissingRatioInput(ratioInput, changedInput)) ratioInput.value = String(defaultWeights[memberId] ?? 0);
+        if (isIncluded && shouldFillMissingRatioInput(ratioInput, changedInput)) {
+          ratioInput.value = String(defaultWeights[memberId] ?? 0);
+          delete ratioInput.dataset.ratioUserCleared;
+        }
       }
       if (fixedInput) fixedInput.disabled = !isIncluded || splitMode !== "fixed";
       if (percent && !isIncluded) percent.textContent = T.notShared;
@@ -432,13 +435,20 @@ function bindExpenseFormInteractions(form, trip) {
   };
 
   form.addEventListener("input", (event) => {
+    if (event.target.matches("[data-split-ratio-value]")) markRatioInputEdit(event.target);
     if (event.target.matches("[data-split-ratio-value], [data-split-fixed-value]")) refreshSplitControls(event.target);
   });
   form.addEventListener("change", (event) => {
     if (event.target.matches("[name='participantIds'], [name='splitMode']")) refreshSplitControls();
+    if (event.target.matches("[data-split-ratio-value]")) markRatioInputEdit(event.target);
     if (event.target.matches("[data-split-ratio-value], [data-split-fixed-value]")) refreshSplitControls(event.target);
   });
   refreshSplitControls();
+}
+
+function markRatioInputEdit(input) {
+  if (input.value.trim() === "") input.dataset.ratioUserCleared = "true";
+  else delete input.dataset.ratioUserCleared;
 }
 
 function parseFiniteNumber(value) {

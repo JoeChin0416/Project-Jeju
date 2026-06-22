@@ -59,7 +59,7 @@ export function readSplitValuesFromForm(form, mode = "ratio") {
 }
 
 export function shouldFillMissingRatioInput(input, changedInput = null) {
-  return Boolean(input && !input.value && input !== changedInput);
+  return Boolean(input && !input.value && input !== changedInput && input.dataset?.ratioUserCleared !== "true");
 }
 
 function roundMoney(value) {

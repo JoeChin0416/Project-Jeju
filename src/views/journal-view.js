@@ -1,16 +1,16 @@
-﻿import {
+import {
   createJournalEntry,
   getJournalDate,
   JOURNAL_TYPES,
   listJournalDates,
   updateJournalEntry,
-} from "../features/journal.js?v=20260604-qa-weather-ocr";
+} from "../features/journal.js?v=20260623-split-ratio-clear";
 import { getMood, TRIP_MOODS } from "../features/moods.js";
-import { uploadJournalPhoto } from "../services/storage.js?v=20260604-qa-weather-ocr";
+import { uploadJournalPhoto } from "../services/storage.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
 import { escapeHtml, formToObject } from "../utils/dom.js";
-import { fileToCompressedImage } from "../utils/image.js?v=20260604-qa-weather-ocr";
+import { fileToCompressedImage } from "../utils/image.js?v=20260623-split-ratio-clear";
 
 const T = {
   title: "\u65c5\u8a18",

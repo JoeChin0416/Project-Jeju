@@ -1,7 +1,7 @@
-﻿import { getDefaultAvatarForIndex } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
-import { normalizeTravelNotes } from "../features/journal.js?v=20260604-qa-weather-ocr";
-import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
-import { PACKING_CATEGORIES, createDefaultPackingItems, createPersonalPackingItems } from "../features/packing.js?v=20260604-qa-weather-ocr";
+import { getDefaultAvatarForIndex } from "../features/avatar-presets.js?v=20260623-split-ratio-clear";
+import { normalizeTravelNotes } from "../features/journal.js?v=20260623-split-ratio-clear";
+import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260623-split-ratio-clear";
+import { PACKING_CATEGORIES, createDefaultPackingItems, createPersonalPackingItems } from "../features/packing.js?v=20260623-split-ratio-clear";
 import { createRentalChecklist, normalizeRentalChecklist } from "../features/rental-checklist.js";
 import { isDefaultPlaceholderMemberSet, removeRetiredMembersFromTrip } from "../features/members.js";
 import {
@@ -11,7 +11,7 @@ import {
   subscribeSharedStore,
   writePersonalPacking,
   writeSharedStore,
-} from "../services/db.js?v=20260604-qa-weather-ocr";
+} from "../services/db.js?v=20260623-split-ratio-clear";
 
 const STORAGE_KEY = "project-jeju.demo-store";
 const SHARED_SCHEMA_VERSION = "jeju-girls-2026-06-v2";

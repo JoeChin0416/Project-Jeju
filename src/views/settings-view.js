@@ -5,7 +5,7 @@ import {
   removeGoogleWhitelistEmail,
   saveAccessSettings,
   syncMemberEmails,
-} from "../services/access-control.js?v=20260604-qa-weather-ocr";
+} from "../services/access-control.js?v=20260623-split-ratio-clear";
 import { clearAiKey, getAiKey, setAiKey, testAiKey } from "../services/ai.js";
 import { hasFirebaseConfig } from "../services/firebase.js";
 import {
@@ -19,11 +19,11 @@ import {
   removeMemberFromTrip,
   upsertMember,
 } from "../features/members.js";
-import { AVATAR_PRESETS, getAvatarPreset, isCustomAvatarUrl, resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
+import { AVATAR_PRESETS, getAvatarPreset, isCustomAvatarUrl, resolveAvatarUrl } from "../features/avatar-presets.js?v=20260623-split-ratio-clear";
 import { setUiStyle, state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
 import { escapeHtml, formToObject } from "../utils/dom.js";
-import { fileToCompressedDataUrl } from "../utils/image.js?v=20260604-qa-weather-ocr";
+import { fileToCompressedDataUrl } from "../utils/image.js?v=20260623-split-ratio-clear";
 
 const text = {
   settings: "設定",

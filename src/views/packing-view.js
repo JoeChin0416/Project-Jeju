@@ -1,4 +1,4 @@
-﻿import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
 import { escapeHtml, formToObject } from "../utils/dom.js";
 import { PACKING_CATEGORIES, groupPackingByCategory } from "../features/packing.js";

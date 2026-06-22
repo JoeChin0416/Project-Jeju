@@ -1,13 +1,13 @@
-﻿import { EXPENSE_CATEGORIES } from "../features/expense-categories.js?v=20260604-qa-weather-ocr";
+import { EXPENSE_CATEGORIES } from "../features/expense-categories.js?v=20260623-split-ratio-clear";
 import { createExpenseFromReceiptItem } from "../features/expenses.js";
 import { findMemberForUser } from "../features/members.js";
-import { buildReceiptItemSplit, calculateReceiptTotal, createBlankReceiptItem, getReceiptItemAllocations, updateReceiptItemAllocation, updateReceiptDraftItem, updateReceiptDraftMeta } from "../features/receipt-draft.js?v=20260604-qa-weather-ocr";
+import { buildReceiptItemSplit, calculateReceiptTotal, createBlankReceiptItem, getReceiptItemAllocations, updateReceiptItemAllocation, updateReceiptDraftItem, updateReceiptDraftMeta } from "../features/receipt-draft.js?v=20260623-split-ratio-clear";
 import { recognizeReceiptImage, translateImageLayout } from "../services/ai.js";
-import { uploadReceiptPhoto } from "../services/storage.js?v=20260604-qa-weather-ocr";
+import { uploadReceiptPhoto } from "../services/storage.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
 import { escapeHtml } from "../utils/dom.js";
-import { fileToCompressedImage } from "../utils/image.js?v=20260604-qa-weather-ocr";
+import { fileToCompressedImage } from "../utils/image.js?v=20260623-split-ratio-clear";
 
 const T = {
   receipt: "\u6536\u64da",

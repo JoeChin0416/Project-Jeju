@@ -65,3 +65,10 @@ test("keeps a ratio input empty while the user is deleting its default value", (
   assert.equal(shouldFillMissingRatioInput({ value: "" }, null), true);
   assert.equal(shouldFillMissingRatioInput({ value: "0" }, { value: "0" }), false);
 });
+
+test("does not refill a ratio field that the user already cleared", () => {
+  const alreadyClearedInput = { value: "", dataset: { ratioUserCleared: "true" } };
+  const anotherEditedInput = { value: "30", dataset: {} };
+
+  assert.equal(shouldFillMissingRatioInput(alreadyClearedInput, anotherEditedInput), false);
+});

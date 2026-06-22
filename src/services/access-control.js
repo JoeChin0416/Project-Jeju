@@ -6,7 +6,7 @@ import {
   isValidEmail,
   normalizeEmail,
 } from "../features/members.js";
-import { readAccessSettings, writeAccessSettings } from "./db.js?v=20260604-qa-weather-ocr";
+import { readAccessSettings, writeAccessSettings } from "./db.js?v=20260623-split-ratio-clear";
 import { hasFirebaseConfig } from "./firebase.js";
 
 const LOCAL_ACCESS_KEY = "project-jeju.access-settings";

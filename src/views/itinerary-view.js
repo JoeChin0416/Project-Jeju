@@ -3,11 +3,11 @@ import { buildGoogleMapsSearchUrl, buildMapProviderUrls, buildNaverMapSearchUrl,
 import { getDailyWeather, getDepartureReminder } from "../features/travel-weather.js";
 import { normalizeRentalChecklist, toggleRentalChecklistItem } from "../features/rental-checklist.js";
 import { fetchTripWeather } from "../services/weather.js";
-import { uploadParkingPhoto } from "../services/storage.js?v=20260604-qa-weather-ocr";
+import { uploadParkingPhoto } from "../services/storage.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
 import { escapeHtml, formToObject } from "../utils/dom.js";
-import { fileToCompressedImage } from "../utils/image.js?v=20260604-qa-weather-ocr";
+import { fileToCompressedImage } from "../utils/image.js?v=20260623-split-ratio-clear";
 
 const T = {
   destinationFallback: "目的地",
