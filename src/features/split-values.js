@@ -34,33 +34,12 @@ export function rebalanceRatioWeights(participantIds, rawValues = {}, changedId,
   if (ids.length === 1) return { [ids[0]]: 100 };
 
   const changedPercent = clampPercent(changedValue);
-  const remainingPercent = 100 - changedPercent;
-  const otherIds = ids.filter((id) => id !== changedId);
-  const otherWeights = Object.fromEntries(otherIds.map((id) => [id, Math.max(0, Number(rawValues[id] || 0))]));
-  const otherTotal = Object.values(otherWeights).reduce((sum, value) => sum + value, 0);
-  const exactShares = otherIds.map((id) => {
-    const ratio = otherTotal > 0 ? otherWeights[id] / otherTotal : 1 / otherIds.length;
-    const exact = ratio * remainingPercent;
-    return {
+  return Object.fromEntries(
+    ids.map((id) => [
       id,
-      value: Math.floor(exact),
-      remainder: exact - Math.floor(exact),
-    };
-  });
-
-  let remainderToAllocate = remainingPercent - exactShares.reduce((sum, entry) => sum + entry.value, 0);
-  [...exactShares]
-    .sort((a, b) => b.remainder - a.remainder || otherIds.indexOf(a.id) - otherIds.indexOf(b.id))
-    .forEach((entry) => {
-      if (remainderToAllocate <= 0) return;
-      entry.value += 1;
-      remainderToAllocate -= 1;
-    });
-
-  return {
-    [changedId]: changedPercent,
-    ...Object.fromEntries(exactShares.map((entry) => [entry.id, entry.value])),
-  };
+      id === changedId ? changedPercent : clampPercent(rawValues[id] ?? 0),
+    ]),
+  );
 }
 
 export function buildSplitPreview(participantIds, mode = "equal", rawValues = {}) {
@@ -84,10 +63,12 @@ export function buildSplitPreview(participantIds, mode = "equal", rawValues = {}
   return Object.fromEntries(ids.map((id) => [id, share]));
 }
 
-export function readSplitValuesFromForm(form) {
-  return [...form.querySelectorAll("[data-split-value]")]
+export function readSplitValuesFromForm(form, mode = "ratio") {
+  const selector = mode === "fixed" ? "[data-split-fixed-value]" : "[data-split-ratio-value], [data-split-value]";
+  return [...form.querySelectorAll(selector)]
     .reduce((values, input) => {
-      values[input.dataset.splitValue] = input.value;
+      const memberId = input.dataset.splitFixedValue || input.dataset.splitRatioValue || input.dataset.splitValue;
+      if (memberId) values[memberId] = input.value;
       return values;
     }, {});
 }

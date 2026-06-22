@@ -42,6 +42,18 @@ const T = {
   payer: "\u4ed8\u6b3e\u4eba",
   participants: "\u5206\u5e33\u5c0d\u8c61",
   splitShare: "目前分攤",
+  splitMode: "分帳方式",
+  splitEqual: "平均",
+  splitRatio: "比例",
+  splitFixed: "指定金額",
+  splitEqualHelp: "依勾選人數平均分攤。",
+  splitRatioHelp: "滑桿是權重，只會改變正在操作的人；實際比例會自動換算。",
+  splitFixedHelp: "直接輸入每個人要分攤的台幣金額。",
+  notShared: "不分帳",
+  equalShare: "平均分攤",
+  allocated: "已分配",
+  remaining: "剩餘",
+  overAllocated: "超出",
   save: "\u5132\u5b58",
   close: "\u95dc\u9589",
   edit: "\u7de8\u8f2f",
@@ -117,7 +129,8 @@ export function expensesView(trip, render) {
         const enteredOriginal = parseFiniteNumber(data.totalOriginal);
         const totalBase = enteredBase ?? (enteredOriginal !== null ? convertToBaseAmount(enteredOriginal, exchangeRate) : 0);
         const totalOriginal = enteredOriginal ?? (enteredBase !== null ? convertFromBaseAmount(enteredBase, exchangeRate) : 0);
-        const splitValues = buildSplitValues(participantIds, "ratio", readSplitValuesFromForm(event.currentTarget), totalBase);
+        const splitMode = data.splitMode || "equal";
+        const splitValues = buildSplitValues(participantIds, splitMode, readSplitValuesFromForm(event.currentTarget, splitMode), totalBase);
         const entry = state.modal?.mode === "edit" ? trip.expenseItems.find((item) => item.id === state.modal.id) : null;
         const item = {
           id: state.modal?.mode === "edit" ? state.modal.id : crypto.randomUUID(),
@@ -134,7 +147,7 @@ export function expensesView(trip, render) {
           totalBase,
           payerId: data.payerId,
           participantIds,
-          splitMode: "ratio",
+          splitMode,
           splitValues,
           expenseDate: data.expenseDate || activeDate,
           receiptPhotoUrl: entry?.receiptPhotoUrl || "",
@@ -258,7 +271,8 @@ function renderExpenseSheet(trip, activeDate) {
   if (state.modal?.type !== "expense") return "";
   const entry = state.modal.mode === "edit" ? trip.expenseItems.find((item) => item.id === state.modal.id) : null;
   const participants = new Set(entry?.participantIds || trip.members.map((member) => member.id));
-  const splitValues = entry?.splitMode === "ratio" ? entry?.splitValues : buildDefaultRatioWeights([...participants]);
+  const splitMode = entry?.splitMode || "equal";
+  const splitValues = entry?.splitValues || {};
   return `
     <div class="sheet-backdrop">
       <section class="bottom-sheet">
@@ -270,7 +284,8 @@ function renderExpenseSheet(trip, activeDate) {
           <div class="form-row"><div class="field"><label>${T.currency}</label><input class="input" name="currency" value="${escapeHtml(entry?.currency || trip.tripCurrency)}" /></div><div class="field"><label>${T.rate}</label><input class="input" name="exchangeRate" inputmode="decimal" value="${escapeHtml(entry?.exchangeRate || trip.exchangeRate)}" data-amount-rate /></div></div>
           <div class="field"><label>${T.payer}</label><select class="select" name="payerId">${trip.members.map((member) => `<option value="${member.id}" ${entry?.payerId === member.id ? "selected" : ""}>${escapeHtml(member.name)}</option>`).join("")}</select></div>
           <div class="field"><label>${T.participants}</label><div class="meta-row">${trip.members.map((member) => `<label class="member-chip"><input type="checkbox" name="participantIds" value="${member.id}" ${participants.has(member.id) ? "checked" : ""} />${escapeHtml(member.name)}</label>`).join("")}</div></div>
-          ${renderSplitControls(trip, participants, splitValues)}
+          ${renderSplitModeControls(splitMode)}
+          ${renderSplitControls(trip, participants, splitValues, splitMode)}
           <button class="button primary full" type="submit">${T.save}</button>
         </form>
       </section>
@@ -278,24 +293,53 @@ function renderExpenseSheet(trip, activeDate) {
   `;
 }
 
-function renderSplitControls(trip, participants, splitValues = {}) {
+function renderSplitModeControls(splitMode = "equal") {
+  const modes = [
+    ["equal", T.splitEqual],
+    ["ratio", T.splitRatio],
+    ["fixed", T.splitFixed],
+  ];
+  return `
+    <div class="field split-mode-field">
+      <label>${T.splitMode}</label>
+      <div class="segmented split-mode-segmented">
+        ${modes.map(([mode, label]) => `
+          <label class="segment split-mode-option ${splitMode === mode ? "is-active" : ""}">
+            <input class="visually-hidden" type="radio" name="splitMode" value="${mode}" ${splitMode === mode ? "checked" : ""} />
+            ${label}
+          </label>
+        `).join("")}
+      </div>
+      <p class="form-help" data-split-mode-help></p>
+    </div>
+  `;
+}
+
+function renderSplitControls(trip, participants, splitValues = {}, splitMode = "equal") {
   const participantIds = trip.members.filter((member) => participants.has(member.id)).map((member) => member.id);
   const defaultWeights = buildDefaultRatioWeights(participantIds);
-  const values = { ...defaultWeights, ...(splitValues || {}) };
-  const preview = buildSplitPreview(participantIds, "ratio", values);
+  const ratioValues = splitMode === "ratio" ? { ...defaultWeights, ...(splitValues || {}) } : defaultWeights;
+  const fixedValues = splitMode === "fixed" ? splitValues || {} : {};
+  const preview = buildSplitPreview(participantIds, splitMode, splitMode === "fixed" ? fixedValues : ratioValues);
   return `
     <div class="split-value-grid" data-split-controls>
       ${trip.members.map((member) => {
         const isIncluded = participants.has(member.id);
-        const value = isIncluded ? (values[member.id] ?? defaultWeights[member.id] ?? 0) : "";
-        const percent = isIncluded ? `${preview[member.id] || 0}%` : "不分帳";
+        const ratioValue = isIncluded ? (ratioValues[member.id] ?? defaultWeights[member.id] ?? 0) : "";
+        const fixedValue = isIncluded ? (fixedValues[member.id] ?? "") : "";
+        const percent = isIncluded ? `${preview[member.id] || 0}%` : T.notShared;
         return `
           <label class="split-value-row ${isIncluded ? "" : "is-disabled"}" data-split-row data-split-member="${member.id}">
             <span>${escapeHtml(member.name)}<em data-split-percent>${percent}</em></span>
-            <input class="input split-value-input is-range" type="range" min="0" max="100" step="1" data-split-value="${member.id}" value="${escapeHtml(value)}" ${isIncluded ? "" : "disabled"} />
+            <div class="split-input-stack">
+              <input class="input split-value-input split-ratio-input is-range ${splitMode === "ratio" ? "" : "is-hidden"}" type="range" min="0" max="100" step="1" data-split-ratio-value="${member.id}" value="${escapeHtml(ratioValue)}" ${isIncluded && splitMode === "ratio" ? "" : "disabled"} />
+              <input class="input split-value-input split-fixed-input ${splitMode === "fixed" ? "" : "is-hidden"}" type="number" inputmode="decimal" min="0" step="1" data-split-fixed-value="${member.id}" value="${escapeHtml(fixedValue)}" ${isIncluded && splitMode === "fixed" ? "" : "disabled"} />
+              <strong class="split-equal-label ${splitMode === "equal" ? "" : "is-hidden"}" data-split-equal-label>${T.equalShare}</strong>
+            </div>
           </label>
         `;
       }).join("")}
+      <div class="split-total-status is-hidden" data-split-total-status></div>
     </div>
   `;
 }
@@ -306,6 +350,8 @@ function bindExpenseFormInteractions(form, trip) {
   const rateInput = form.querySelector("[data-amount-rate]");
   let lastAmountSource = originalInput?.value ? "original" : "base";
 
+  const getSplitMode = () => new FormData(form).get("splitMode") || "equal";
+
   const syncAmounts = (source) => {
     if (!originalInput || !baseInput || !rateInput) return;
     lastAmountSource = source;
@@ -315,6 +361,7 @@ function bindExpenseFormInteractions(form, trip) {
     } else {
       originalInput.value = baseInput.value.trim() ? convertFromBaseAmount(baseInput.value, rate) : "";
     }
+    refreshSplitControls();
   };
 
   originalInput?.addEventListener("input", () => syncAmounts("original"));
@@ -322,49 +369,79 @@ function bindExpenseFormInteractions(form, trip) {
   rateInput?.addEventListener("input", () => syncAmounts(lastAmountSource));
 
   const refreshSplitControls = (changedInput = null) => {
+    const splitMode = getSplitMode();
     const participantIds = [...form.querySelectorAll("[name='participantIds']:checked")].map((input) => input.value);
     const defaultWeights = buildDefaultRatioWeights(participantIds);
     const participantSet = new Set(participantIds);
 
+    form.querySelectorAll("[name='splitMode']").forEach((input) => {
+      input.closest(".segment")?.classList.toggle("is-active", input.checked);
+    });
+    const help = form.querySelector("[data-split-mode-help]");
+    if (help) {
+      help.textContent = splitMode === "fixed"
+        ? T.splitFixedHelp
+        : splitMode === "ratio"
+          ? T.splitRatioHelp
+          : T.splitEqualHelp;
+    }
+
     form.querySelectorAll("[data-split-row]").forEach((row) => {
       const memberId = row.dataset.splitMember;
-      const input = row.querySelector("[data-split-value]");
+      const ratioInput = row.querySelector("[data-split-ratio-value]");
+      const fixedInput = row.querySelector("[data-split-fixed-value]");
+      const equalLabel = row.querySelector("[data-split-equal-label]");
       const percent = row.querySelector("[data-split-percent]");
       const isIncluded = participantSet.has(memberId);
       row.classList.toggle("is-disabled", !isIncluded);
-      if (!input) return;
-
-      input.disabled = !isIncluded;
-      input.type = "range";
-      input.min = "0";
-      input.max = "100";
-      input.step = "1";
-      input.classList.add("is-range");
-      if (isIncluded && !input.value) input.value = String(defaultWeights[memberId] ?? 0);
+      ratioInput?.classList.toggle("is-hidden", splitMode !== "ratio");
+      fixedInput?.classList.toggle("is-hidden", splitMode !== "fixed");
+      equalLabel?.classList.toggle("is-hidden", splitMode !== "equal");
+      if (ratioInput) {
+        ratioInput.disabled = !isIncluded || splitMode !== "ratio";
+        if (isIncluded && !ratioInput.value) ratioInput.value = String(defaultWeights[memberId] ?? 0);
+      }
+      if (fixedInput) fixedInput.disabled = !isIncluded || splitMode !== "fixed";
+      if (percent && !isIncluded) percent.textContent = T.notShared;
     });
 
-    let rawValues = readSplitValuesFromForm(form);
-    if (changedInput?.dataset?.splitValue && participantSet.has(changedInput.dataset.splitValue)) {
-      rawValues = rebalanceRatioWeights(participantIds, rawValues, changedInput.dataset.splitValue, changedInput.value);
-      form.querySelectorAll("[data-split-value]").forEach((input) => {
-        if (participantSet.has(input.dataset.splitValue)) input.value = String(rawValues[input.dataset.splitValue] ?? 0);
+    let rawValues = readSplitValuesFromForm(form, splitMode);
+    if (changedInput?.dataset?.splitRatioValue && participantSet.has(changedInput.dataset.splitRatioValue)) {
+      rawValues = rebalanceRatioWeights(participantIds, readSplitValuesFromForm(form, "ratio"), changedInput.dataset.splitRatioValue, changedInput.value);
+      form.querySelectorAll("[data-split-ratio-value]").forEach((input) => {
+        if (participantSet.has(input.dataset.splitRatioValue)) input.value = String(rawValues[input.dataset.splitRatioValue] ?? 0);
       });
     }
-    const preview = buildSplitPreview(participantIds, "ratio", rawValues);
+    const preview = buildSplitPreview(participantIds, splitMode, rawValues);
     form.querySelectorAll("[data-split-row]").forEach((row) => {
       const memberId = row.dataset.splitMember;
       const percent = row.querySelector("[data-split-percent]");
       const isIncluded = participantSet.has(memberId);
-      if (percent) percent.textContent = isIncluded ? `${preview[memberId] || 0}%` : "不分帳";
+      if (percent) percent.textContent = isIncluded ? `${preview[memberId] || 0}%` : T.notShared;
     });
+
+    const status = form.querySelector("[data-split-total-status]");
+    if (status) {
+      status.classList.toggle("is-hidden", splitMode !== "fixed");
+      if (splitMode === "fixed") {
+        const totalBase = parseFiniteNumber(baseInput?.value) ?? 0;
+        const fixedValues = readSplitValuesFromForm(form, "fixed");
+        const allocated = participantIds.reduce((sum, id) => sum + Number(fixedValues[id] || 0), 0);
+        const diff = Math.round((totalBase - allocated) * 100) / 100;
+        status.classList.toggle("is-over", diff < 0);
+        status.textContent = diff < 0
+          ? `${T.allocated} ${formatCurrency(allocated)} / ${T.overAllocated} ${formatCurrency(Math.abs(diff))}`
+          : `${T.allocated} ${formatCurrency(allocated)} / ${T.remaining} ${formatCurrency(diff)}`;
+      }
+    }
   };
 
   form.addEventListener("input", (event) => {
-    if (event.target.matches("[data-split-value]")) refreshSplitControls(event.target);
+    if (event.target.matches("[data-split-ratio-value], [data-split-fixed-value]")) refreshSplitControls(event.target);
   });
   form.addEventListener("change", (event) => {
-    if (event.target.matches("[name='participantIds']")) refreshSplitControls();
-    if (event.target.matches("[data-split-value]")) refreshSplitControls(event.target);
+    if (event.target.matches("[name='participantIds'], [name='splitMode']")) refreshSplitControls();
+    if (event.target.matches("[data-split-ratio-value], [data-split-fixed-value]")) refreshSplitControls(event.target);
   });
   refreshSplitControls();
 }
