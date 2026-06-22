@@ -1,5 +1,6 @@
 export const OWNER_EMAILS = ["dpluschin0416@gmail.com"];
-export const RETIRED_ACCOUNT_EMAILS = ["joe.chin@joe.com.tw"];
+export const NON_MEMBER_ADMIN_EMAILS = ["joe.chin@joe.com.tw"];
+export const RETIRED_ACCOUNT_EMAILS = NON_MEMBER_ADMIN_EMAILS;
 
 const MEMBER_COLORS = ["#116b63", "#ee6b4d", "#3167b7", "#d99716", "#8a63d2", "#f45d7d", "#62bcae", "#a88bea"];
 const PLACEHOLDER_IDS = ["m-a", "m-b", "m-c", "m-d", "m-e"];
@@ -18,7 +19,11 @@ export function isOwnerEmail(email) {
 }
 
 export function isRetiredAccountEmail(email) {
-  return RETIRED_ACCOUNT_EMAILS.includes(normalizeEmail(email));
+  return isNonMemberAdminEmail(email);
+}
+
+export function isNonMemberAdminEmail(email) {
+  return NON_MEMBER_ADMIN_EMAILS.includes(normalizeEmail(email));
 }
 
 export function createMemberForUser(user, data = {}, index = 0) {
@@ -56,7 +61,13 @@ export function findMemberForUser(members = [], user) {
 }
 
 export function normalizeMemberEmails(members = []) {
-  return [...new Set((members || []).map((member) => normalizeEmail(member.email)).filter(isValidEmail))].sort();
+  return [...new Set((members || [])
+    .map((member) => normalizeEmail(member.email))
+    .filter((email) => isValidEmail(email) && !isNonMemberAdminEmail(email)))].sort();
+}
+
+export function needsTripMemberRole(members = [], user) {
+  return Boolean(user && !isNonMemberAdminEmail(user.email) && !findMemberForUser(members, user));
 }
 
 export function isDefaultPlaceholderMemberSet(members = []) {
@@ -69,6 +80,7 @@ export function isDefaultPlaceholderMemberSet(members = []) {
 
 export function upsertMember(members = [], member) {
   const email = normalizeEmail(member.email);
+  if (isNonMemberAdminEmail(email)) return members;
   const index = members.findIndex((entry) =>
     entry.id === member.id ||
     (member.uid && entry.uid === member.uid) ||

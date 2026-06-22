@@ -21,6 +21,7 @@ import { readFile } from "node:fs/promises";
 
 const projectId = "jeju-travel-f136b";
 const ownerEmail = "dpluschin0416@gmail.com";
+const nonMemberAdminEmail = "joe.chin@joe.com.tw";
 const sharedPath = "sharedTrips/jeju-2026-girls/stores/default";
 const accessPath = "sharedTrips/jeju-2026-girls/access/default";
 let testEnv;
@@ -71,11 +72,11 @@ function googleUser(uid, email) {
   });
 }
 
-test("shared trip is denied to guests and unlisted users", async () => {
+test("shared trip is denied to guests and unlisted users while allowing non-member admin", async () => {
   await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), sharedPath)));
   await assertFails(getDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), sharedPath)));
   await assertFails(getDoc(doc(passwordUser("stranger").firestore(), sharedPath)));
-  await assertFails(getDoc(doc(googleUser("retired-owner", "joe.chin@joe.com.tw").firestore(), sharedPath)));
+  await assertSucceeds(getDoc(doc(googleUser("non-member-admin", nonMemberAdminEmail).firestore(), sharedPath)));
 });
 
 test("Google access fails closed until settings exist and while whitelist is empty", async () => {
@@ -153,7 +154,15 @@ test("only owners and admins can manage access settings", async () => {
     settings: {
       googleWhitelist: ["friend@gmail.com"],
       memberEmails: ["member@example.com"],
-      adminEmails: [ownerEmail, "admin@example.com"],
+      adminEmails: [ownerEmail, nonMemberAdminEmail, "admin@example.com"],
+    },
+  }));
+
+  await assertSucceeds(setDoc(doc(googleUser("non-member-admin", nonMemberAdminEmail).firestore(), accessPath), {
+    settings: {
+      googleWhitelist: ["friend@gmail.com"],
+      memberEmails: ["member@example.com"],
+      adminEmails: [ownerEmail, nonMemberAdminEmail, "admin@example.com"],
     },
   }));
 
@@ -161,7 +170,7 @@ test("only owners and admins can manage access settings", async () => {
     settings: {
       googleWhitelist: ["friend@gmail.com"],
       memberEmails: ["member@example.com"],
-      adminEmails: [ownerEmail, "admin@example.com"],
+      adminEmails: [ownerEmail, nonMemberAdminEmail, "admin@example.com"],
     },
   }));
   await assertFails(setDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath), {
@@ -180,12 +189,14 @@ test("storage accepts shared trip images from allowed users only", async () => {
   const image = new Uint8Array([255, 216, 255, 217]);
   const allowedRef = ref(passwordUser("member").storage(), "trips/jeju/parking/car-1/photo.jpg");
   const allowedGoogleRef = ref(googleUser("friend", "friend@gmail.com").storage(), "trips/jeju/parking/car-1/friend.jpg");
+  const allowedAdminRef = ref(googleUser("non-member-admin", nonMemberAdminEmail).storage(), "trips/jeju/parking/car-1/admin.jpg");
   const blockedRef = ref(googleUser("stranger", "stranger@gmail.com").storage(), "trips/jeju/parking/car-1/blocked.jpg");
   const invalidRef = ref(passwordUser("writer").storage(), "trips/jeju/parking/car-1/file.txt");
 
   await assertSucceeds(uploadBytes(allowedRef, image, { contentType: "image/jpeg" }));
   await assertSucceeds(getBytes(allowedRef));
   await assertSucceeds(uploadBytes(allowedGoogleRef, image, { contentType: "image/jpeg" }));
+  await assertSucceeds(uploadBytes(allowedAdminRef, image, { contentType: "image/jpeg" }));
   await assertFails(uploadBytes(blockedRef, image, { contentType: "image/jpeg" }));
   await assertFails(uploadBytes(invalidRef, image, { contentType: "text/plain" }));
 });
@@ -196,8 +207,11 @@ test("only owners and admins can delete shared trip images", async () => {
   const memberRef = ref(passwordUser("member").storage(), photoPath);
   const friendRef = ref(googleUser("friend", "friend@gmail.com").storage(), photoPath);
   const ownerRef = ref(ownerUser().storage(), photoPath);
+  const adminRef = ref(googleUser("non-member-admin", nonMemberAdminEmail).storage(), photoPath);
 
   await assertSucceeds(uploadBytes(memberRef, image, { contentType: "image/jpeg" }));
   await assertFails(deleteObject(friendRef));
+  await assertSucceeds(deleteObject(adminRef));
+  await assertSucceeds(uploadBytes(memberRef, image, { contentType: "image/jpeg" }));
   await assertSucceeds(deleteObject(ownerRef));
 });

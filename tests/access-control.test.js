@@ -11,22 +11,22 @@ import {
 } from "../src/services/access-control.js";
 
 test("allows only owners and configured admins to manage Google whitelist", () => {
-  assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "joe.chin@joe.com.tw" }), false);
+  assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "joe.chin@joe.com.tw" }), true);
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "password", email: "dpluschin0416@gmail.com" }), true);
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "password", email: "member@example.com" }, { adminEmails: [] }), false);
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "admin@example.com" }, { adminEmails: ["admin@example.com"] }), true);
 });
 
-test("default access settings keep active owner email in admin without forcing it into Google whitelist", () => {
+test("default access settings keep owner and non-member admin emails in admin without forcing them into Google whitelist", () => {
   const settings = createDefaultAccessSettings();
 
   assert.ok(settings.adminEmails.includes("dpluschin0416@gmail.com"));
+  assert.ok(settings.adminEmails.includes("joe.chin@joe.com.tw"));
   assert.ok(!settings.googleWhitelist.includes("dpluschin0416@gmail.com"));
-  assert.ok(!settings.adminEmails.includes("joe.chin@joe.com.tw"));
   assert.ok(!settings.googleWhitelist.includes("joe.chin@joe.com.tw"));
 });
 
-test("normalization prunes retired owner email from all access lists", () => {
+test("normalization keeps non-member admins out of trip members while preserving admin access", () => {
   const settings = addGoogleWhitelistEmail(
     {
       googleWhitelist: ["joe.chin@joe.com.tw"],
@@ -38,8 +38,17 @@ test("normalization prunes retired owner email from all access lists", () => {
 
   assert.ok(!settings.googleWhitelist.includes("joe.chin@joe.com.tw"));
   assert.ok(!settings.memberEmails.includes("joe.chin@joe.com.tw"));
-  assert.ok(!settings.adminEmails.includes("joe.chin@joe.com.tw"));
+  assert.ok(settings.adminEmails.includes("joe.chin@joe.com.tw"));
   assert.deepEqual(settings.memberEmails, ["friend@gmail.com"]);
+});
+
+test("allows the non-member admin account without adding it as a trip member", () => {
+  const result = checkUserAccess(
+    { mode: "firebase", authProvider: "google.com", email: "joe.chin@joe.com.tw" },
+    { googleWhitelist: [], memberEmails: [], adminEmails: [] },
+  );
+
+  assert.equal(result.allowed, true);
 });
 
 test("blocks password users that are not owner admin or trip members", () => {

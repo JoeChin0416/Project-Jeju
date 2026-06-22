@@ -1,6 +1,7 @@
 import {
+  NON_MEMBER_ADMIN_EMAILS,
   OWNER_EMAILS,
-  RETIRED_ACCOUNT_EMAILS,
+  isNonMemberAdminEmail,
   isOwnerEmail,
   isValidEmail,
   normalizeEmail,
@@ -13,7 +14,7 @@ const LOCAL_ACCESS_KEY = "project-jeju.access-settings";
 const DEFAULT_ACCESS_SETTINGS = {
   googleWhitelist: [],
   memberEmails: [],
-  adminEmails: OWNER_EMAILS,
+  adminEmails: [...OWNER_EMAILS, ...NON_MEMBER_ADMIN_EMAILS],
 };
 
 export function createDefaultAccessSettings() {
@@ -52,6 +53,7 @@ export async function saveAccessSettings(settings) {
 export function canManageAccess(user, settings) {
   return user?.mode === "demo" ||
     isOwnerEmail(user?.email) ||
+    isNonMemberAdminEmail(user?.email) ||
     normalizeEmailList(settings?.adminEmails).includes(normalizeEmail(user?.email));
 }
 
@@ -64,7 +66,7 @@ export function checkUserAccess(user, settings) {
     return { allowed: true, reason: "" };
   }
 
-  if (isOwnerEmail(user.email)) return { allowed: true, reason: "" };
+  if (isOwnerEmail(user.email) || isNonMemberAdminEmail(user.email)) return { allowed: true, reason: "" };
 
   if (!settings) {
     return {
@@ -131,14 +133,15 @@ export function removeAccessEmail(settings, email) {
 }
 
 function normalizeAccessSettings(settings) {
-  const blockedEmails = [...OWNER_EMAILS, ...RETIRED_ACCOUNT_EMAILS];
+  const builtInAdminEmails = [...OWNER_EMAILS, ...NON_MEMBER_ADMIN_EMAILS];
   return {
     ...DEFAULT_ACCESS_SETTINGS,
     ...(settings ?? {}),
-    googleWhitelist: normalizeEmailList(settings?.googleWhitelist).filter((email) => !blockedEmails.includes(email)),
-    memberEmails: normalizeEmailList(settings?.memberEmails).filter((email) => !RETIRED_ACCOUNT_EMAILS.includes(email)),
-    adminEmails: normalizeEmailList([...(settings?.adminEmails ?? []), ...OWNER_EMAILS])
-      .filter((email) => !RETIRED_ACCOUNT_EMAILS.includes(email)),
+    googleWhitelist: normalizeEmailList(settings?.googleWhitelist)
+      .filter((email) => !builtInAdminEmails.includes(email)),
+    memberEmails: normalizeEmailList(settings?.memberEmails)
+      .filter((email) => !NON_MEMBER_ADMIN_EMAILS.includes(email)),
+    adminEmails: normalizeEmailList([...(settings?.adminEmails ?? []), ...builtInAdminEmails]),
   };
 }
 

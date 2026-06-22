@@ -15,7 +15,7 @@ service firebase.storage {
         && signedInEmail() == "dpluschin0416@gmail.com";
     }
 
-    function isRetiredAccount() {
+    function isNonMemberAdmin() {
       return signedIn() && signedInEmail() == "joe.chin@joe.com.tw";
     }
 
@@ -56,8 +56,7 @@ service firebase.storage {
     }
 
     function sharedTripUserIsAllowed() {
-      return !isRetiredAccount()
-        && (isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser());
+      return isOwner() || isNonMemberAdmin() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser();
     }
 
     function validImageUpload() {
@@ -68,7 +67,7 @@ service firebase.storage {
 
     match /trips/{tripId}/{allPaths=**} {
       allow read: if sharedTripUserIsAllowed();
-      allow delete: if isOwner() || isAdmin();
+      allow delete: if isOwner() || isNonMemberAdmin() || isAdmin();
       allow create, update: if sharedTripUserIsAllowed() && validImageUpload();
     }
 

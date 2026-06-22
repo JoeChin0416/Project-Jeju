@@ -5,8 +5,10 @@ import {
   createMemberForUser,
   findMemberForUser,
   isDefaultPlaceholderMemberSet,
+  isNonMemberAdminEmail,
   isOwnerEmail,
   normalizeMemberEmails,
+  needsTripMemberRole,
   removeMemberFromTrip,
   removeRetiredMembersFromTrip,
 } from "../src/features/members.js";
@@ -78,12 +80,30 @@ test("member emails are normalized for access rules", () => {
   );
 });
 
-test("retired test account is not treated as an owner", () => {
+test("non-member admin account is not treated as an owner", () => {
   assert.equal(isOwnerEmail("joe.chin@joe.com.tw"), false);
+  assert.equal(isNonMemberAdminEmail("joe.chin@joe.com.tw"), true);
   assert.equal(isOwnerEmail("dpluschin0416@gmail.com"), true);
 });
 
-test("removes retired account roles from the trip and existing expenses", () => {
+test("non-member admin can use the app without creating a trip role", () => {
+  const members = [{ id: "friend", email: "friend@example.com", uid: "friend-uid" }];
+
+  assert.equal(
+    needsTripMemberRole(members, { uid: "admin-uid", email: "joe.chin@joe.com.tw" }),
+    false,
+  );
+  assert.equal(
+    needsTripMemberRole(members, { uid: "new-uid", email: "new@example.com" }),
+    true,
+  );
+  assert.equal(
+    needsTripMemberRole(members, { uid: "friend-uid", email: "friend@example.com" }),
+    false,
+  );
+});
+
+test("removes non-member admin roles from the trip and existing expenses", () => {
   const trip = {
     members: [
       { id: "joe", name: "Joe test", email: "joe.chin@joe.com.tw" },

@@ -1,6 +1,6 @@
 ﻿import { getInitialUser, signInWithEmail, signInWithGoogle, signOutUser } from "./services/auth.js?v=20260604-qa-weather-ocr";
 import { checkUserAccess, loadAccessSettings } from "./services/access-control.js?v=20260604-qa-weather-ocr";
-import { findMemberForUser } from "./features/members.js";
+import { needsTripMemberRole } from "./features/members.js";
 import { hasFirebaseConfig, initializeFirebaseRuntime } from "./services/firebase.js";
 import { getActiveTrip, readTabFromHash, setActiveTab, setState, state } from "./state/app-state.js";
 import {
@@ -92,7 +92,7 @@ function render() {
     return;
   }
 
-  if (state.user && !findMemberForUser(trip.members, state.user) && state.activeTab !== "settings") {
+  if (needsTripMemberRole(trip.members, state.user) && state.activeTab !== "settings") {
     state.activeTab = "settings";
     if (location.hash !== "#/settings") history.replaceState(null, "", "#/settings");
     if (!state.notice) state.notice = "請先建立你的旅伴角色。";

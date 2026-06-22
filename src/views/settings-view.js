@@ -12,6 +12,7 @@ import {
   createManualMember,
   createMemberForUser,
   findMemberForUser,
+  isNonMemberAdminEmail,
   isOwnerEmail,
   isValidEmail,
   normalizeEmail,
@@ -98,6 +99,7 @@ export function settingsView(trip, render) {
   const accessSettings = state.accessSettings ?? { googleWhitelist: [], memberEmails: [], adminEmails: [] };
   const accessManageable = canManageAccess(state.user, accessSettings);
   const currentMember = findMemberForUser(trip.members, state.user);
+  const nonMemberAdmin = isNonMemberAdminEmail(state.user?.email);
 
   return {
     html: `
@@ -112,8 +114,8 @@ export function settingsView(trip, render) {
 
       <section class="panel span-all">
         <div class="section-title"><div><h2>${text.members}</h2><p>${text.memberHelp}</p></div></div>
-        ${!currentMember ? `<div class="status danger">${text.roleRequired}</div>` : ""}
-        ${renderMyRoleForm(currentMember)}
+        ${!currentMember && !nonMemberAdmin ? `<div class="status danger">${text.roleRequired}</div>` : ""}
+        ${nonMemberAdmin ? `<div class="status">\u7ba1\u7406\u8005\u6a21\u5f0f\uff1a\u4e0d\u6703\u52a0\u5165\u65c5\u4f34\u3001\u5206\u5e33\u6216\u500b\u4eba\u884c\u674e\u540d\u55ae\u3002</div>` : renderMyRoleForm(currentMember)}
         ${renderMemberList(trip, currentMember)}
         ${renderManualMemberForm()}
       </section>
@@ -178,6 +180,7 @@ export function settingsView(trip, render) {
 
       root.querySelector("[data-my-role-form]")?.addEventListener("submit", async (event) => {
         event.preventDefault();
+        if (nonMemberAdmin) return;
         const data = formToObject(event.currentTarget);
         await runMemberUpdate(render, async () => saveMemberUpdate({
           accessSettings,
@@ -214,7 +217,7 @@ export function settingsView(trip, render) {
         event.preventDefault();
         const data = formToObject(event.currentTarget);
         await runMemberUpdate(render, async () => {
-          if (!isValidEmail(data.email)) throw new Error(text.invalidEmail);
+          if (!isValidEmail(data.email) || isNonMemberAdminEmail(data.email)) throw new Error(text.invalidEmail);
           await saveMemberUpdate({
             accessSettings,
             updater(draft) {
@@ -299,7 +302,7 @@ export function settingsView(trip, render) {
           const name = window.prompt(text.editNamePrompt, member.name);
           if (!name) return;
           const emailValue = window.prompt(text.editEmailPrompt, member.email || "");
-          if (!isValidEmail(emailValue)) {
+          if (!isValidEmail(emailValue) || isNonMemberAdminEmail(emailValue)) {
             state.error = text.invalidEmail;
             render();
             return;
@@ -419,7 +422,9 @@ function renderManualMemberForm() {
 }
 
 function renderMemberList(trip, currentMember) {
-  const members = [...(trip.members || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const members = [...(trip.members || [])]
+    .filter((member) => !isNonMemberAdminEmail(member.email))
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   if (!members.length) return `<div class="empty">${text.noMembers}</div>`;
   return `
     <div class="list member-role-list">

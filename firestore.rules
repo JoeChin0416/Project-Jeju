@@ -15,7 +15,7 @@ service cloud.firestore {
         && signedInEmail() == "dpluschin0416@gmail.com";
     }
 
-    function isRetiredAccount() {
+    function isNonMemberAdmin() {
       return signedIn() && signedInEmail() == "joe.chin@joe.com.tw";
     }
 
@@ -56,17 +56,16 @@ service cloud.firestore {
     }
 
     function sharedTripUserIsAllowed() {
-      return !isRetiredAccount()
-        && (isOwner() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser());
+      return isOwner() || isNonMemberAdmin() || isAdmin() || isTripMember() || isWhitelistedGoogleUser() || isAllowedPasswordUser();
     }
 
     function canManageAccessSettings() {
-      return !isRetiredAccount() && (isOwner() || isAdmin());
+      return isOwner() || isNonMemberAdmin() || isAdmin();
     }
 
     match /sharedTrips/jeju-2026-girls/access/default {
       allow read: if sharedTripUserIsAllowed();
-      allow create: if isOwner();
+      allow create: if isOwner() || isNonMemberAdmin();
       allow update: if canManageAccessSettings();
       allow delete: if false;
     }
