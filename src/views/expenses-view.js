@@ -3,7 +3,7 @@ import { buildCategoryPieGradient, summarizeDailySpending } from "../features/ex
 import { convertFromBaseAmount, convertToBaseAmount } from "../features/expenses.js";
 import { calculateMemberExpenseSummary, getExpenseDate, listExpenseDates } from "../features/expense-summary.js?v=20260604-qa-weather-ocr";
 import { calculateSettlement } from "../features/settlement.js";
-import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm } from "../features/split-values.js?v=20260604-qa-weather-ocr";
+import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, shouldFillMissingRatioInput } from "../features/split-values.js?v=20260604-qa-weather-ocr";
 import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260604-qa-weather-ocr";
 import { state } from "../state/app-state.js";
 import { updateActiveTrip } from "../state/trip-store.js?v=20260604-qa-weather-ocr";
@@ -12,8 +12,9 @@ import { escapeHtml, formToObject } from "../utils/dom.js";
 
 const T = {
   dashboard: "\u6210\u54e1\u652f\u51fa",
+  dashboardHelp: "\u6de8\u984d = \u4ed8\u6b3e - \u61c9\u8ca0\u64d4",
   paid: "\u4ed8\u6b3e",
-  spent: "\u61c9\u5206\u6524",
+  spent: "\u61c9\u8ca0\u64d4",
   transfers: "\u4ed8\u6b3e\u8a66\u7b97",
   payTo: "\u4ed8\u7d66",
   noTransfer: "\u76ee\u524d\u4e0d\u9700\u8981\u4e92\u76f8\u8f49\u5e33",
@@ -209,7 +210,7 @@ function renderDailySpendingDashboard(trip, activeDate) {
 function renderMemberDashboard(trip, summary) {
   return `
     <section class="panel span-all expense-dashboard">
-      <div class="section-title"><h2>${T.dashboard}</h2></div>
+      <div class="section-title"><div><h2>${T.dashboard}</h2><p>${T.dashboardHelp}</p></div></div>
       <div class="member-expense-grid">
         ${trip.members.map((member) => {
           const entry = summary[member.id] || { paid: 0, spent: 0, net: 0 };
@@ -399,7 +400,7 @@ function bindExpenseFormInteractions(form, trip) {
       equalLabel?.classList.toggle("is-hidden", splitMode !== "equal");
       if (ratioInput) {
         ratioInput.disabled = !isIncluded || splitMode !== "ratio";
-        if (isIncluded && !ratioInput.value) ratioInput.value = String(defaultWeights[memberId] ?? 0);
+        if (isIncluded && shouldFillMissingRatioInput(ratioInput, changedInput)) ratioInput.value = String(defaultWeights[memberId] ?? 0);
       }
       if (fixedInput) fixedInput.disabled = !isIncluded || splitMode !== "fixed";
       if (percent && !isIncluded) percent.textContent = T.notShared;

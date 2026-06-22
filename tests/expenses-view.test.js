@@ -105,3 +105,30 @@ test("ratio split uses manual percentage inputs instead of sliders", async () =>
 
   state.modal = null;
 });
+
+test("member expense dashboard explains that net is paid minus owed share", async () => {
+  globalThis.localStorage = globalThis.localStorage ?? {
+    getItem: () => "",
+    setItem: () => {},
+    removeItem: () => {},
+  };
+
+  const [{ expensesView }, { state }] = await Promise.all([
+    import("../src/views/expenses-view.js"),
+    import("../src/state/app-state.js"),
+  ]);
+
+  state.modal = null;
+  const view = expensesView({
+    id: "trip",
+    startDate: "2026-06-21",
+    tripCurrency: "KRW",
+    exchangeRate: 0.024,
+    itineraryDays: [{ id: "day-1", date: "2026-06-21", title: "Day 1" }],
+    receiptBatches: [],
+    members: [{ id: "a", name: "A", color: "#116b63" }],
+    expenseItems: [],
+  }, () => {});
+
+  assert.match(view.html, /淨額 = 付款 - 應負擔/);
+});

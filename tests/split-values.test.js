@@ -6,6 +6,7 @@ import {
   buildSplitPreview,
   buildSplitValues,
   readSplitValuesFromForm,
+  shouldFillMissingRatioInput,
 } from "../src/features/split-values.js";
 
 test("keeps equal split values empty", () => {
@@ -53,4 +54,14 @@ test("reads ratio or fixed split values from the matching controls only", () => 
 
   assert.deepEqual(readSplitValuesFromForm(form, "ratio"), { a: "70", b: "30" });
   assert.deepEqual(readSplitValuesFromForm(form, "fixed"), { a: "120", b: "80" });
+});
+
+test("keeps a ratio input empty while the user is deleting its default value", () => {
+  const editedInput = { value: "" };
+  const untouchedInput = { value: "" };
+
+  assert.equal(shouldFillMissingRatioInput(editedInput, editedInput), false);
+  assert.equal(shouldFillMissingRatioInput(untouchedInput, editedInput), true);
+  assert.equal(shouldFillMissingRatioInput({ value: "" }, null), true);
+  assert.equal(shouldFillMissingRatioInput({ value: "0" }, { value: "0" }), false);
 });

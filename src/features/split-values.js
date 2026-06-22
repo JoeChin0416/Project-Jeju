@@ -58,6 +58,10 @@ export function readSplitValuesFromForm(form, mode = "ratio") {
     }, {});
 }
 
+export function shouldFillMissingRatioInput(input, changedInput = null) {
+  return Boolean(input && !input.value && input !== changedInput);
+}
+
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
