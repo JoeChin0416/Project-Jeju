@@ -15,6 +15,7 @@ import {
 
 const STORAGE_KEY = "project-jeju.demo-store";
 const SHARED_SCHEMA_VERSION = "jeju-girls-2026-06-v2";
+export const DEFAULT_EXCHANGE_RATE = 0.021;
 let persistenceContext = { mode: "demo", uid: "" };
 let storeSyncWarning = "";
 let unsubscribeSharedStore = null;
@@ -111,7 +112,7 @@ export function createTrip(store, data) {
     endDate: data.endDate || "",
     baseCurrency: data.baseCurrency || "TWD",
     tripCurrency: data.tripCurrency || "KRW",
-    exchangeRate: Number(data.exchangeRate || 0.024),
+    exchangeRate: normalizeExchangeRate(data.exchangeRate),
     members,
     itineraryDays: [],
     places: [],
@@ -138,6 +139,7 @@ function normalizeStore(store) {
     const members = hasPlaceholderMembers ? [] : (trip.members ?? []).map(normalizeMember).map(ensureMemberAvatar);
     const migratedTrip = {
       ...trip,
+      exchangeRate: normalizeExchangeRate(trip.exchangeRate),
       members,
       expenseItems: hasPlaceholderMembers ? [] : normalizeExpenses(trip.expenseItems ?? [], trip),
       receiptBatches: trip.receiptBatches ?? [],
@@ -233,6 +235,12 @@ function normalizeTransportItems(items) {
   ));
 }
 
+function normalizeExchangeRate(rate) {
+  const numericRate = Number(rate);
+  if (!Number.isFinite(numericRate) || numericRate <= 0) return DEFAULT_EXCHANGE_RATE;
+  return numericRate === 0.024 ? DEFAULT_EXCHANGE_RATE : numericRate;
+}
+
 function findReceiptDate(trip, receiptBatchId) {
   if (!receiptBatchId) return "";
   return trip.receiptBatches?.find((receipt) => receipt.id === receiptBatchId)?.receiptDate || "";
@@ -254,7 +262,7 @@ function createSeedStore() {
         endDate: "2026-06-25",
         baseCurrency: "TWD",
         tripCurrency: "KRW",
-        exchangeRate: 0.024,
+        exchangeRate: DEFAULT_EXCHANGE_RATE,
         members,
         itineraryDays: [
           { id: "d1", date: "2026-06-21", title: "\u62b5\u9054\u8207\u5e02\u5340\u63a1\u8cb7", sortOrder: 1 },

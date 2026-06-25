@@ -8,7 +8,8 @@ import {
 import { getMood, TRIP_MOODS } from "../features/moods.js";
 import { uploadJournalPhoto } from "../services/storage.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260625-access-rate-delete";
+import { confirmDestructiveAction } from "../utils/confirm.js";
 import { escapeHtml, formToObject } from "../utils/dom.js";
 import { fileToCompressedImage } from "../utils/image.js?v=20260623-split-ratio-clear";
 
@@ -29,6 +30,7 @@ const T = {
   markDone: "\u5b8c\u6210",
   edit: "\u7de8\u8f2f",
   delete: "\u522a\u9664",
+  deleteConfirm: "確定要刪除這篇旅記嗎？刪除後無法從 App 直接復原。",
   editJournal: "\u7de8\u8f2f\u65c5\u8a18",
   close: "\u95dc\u9589",
   type: "\u985e\u578b",
@@ -173,6 +175,7 @@ export function journalView(trip, render) {
           return;
         }
         if (deleteId) {
+          if (!confirmDestructiveAction(T.deleteConfirm)) return;
           state.store = updateActiveTrip(state.store, (draft) => {
             draft.travelNotes = draft.travelNotes.filter((entry) => entry.id !== deleteId);
             return draft;

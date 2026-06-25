@@ -10,11 +10,12 @@ import {
   removeGoogleWhitelistEmail,
 } from "../src/services/access-control.js";
 
-test("allows only owners and configured admins to manage Google whitelist", () => {
+test("allows owners admins and current trip members to manage Google whitelist", () => {
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "joe.chin@joe.com.tw" }), true);
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "password", email: "dpluschin0416@gmail.com" }), true);
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "password", email: "member@example.com" }, { adminEmails: [] }), false);
   assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "admin@example.com" }, { adminEmails: ["admin@example.com"] }), true);
+  assert.equal(canManageAccess({ mode: "firebase", authProvider: "google.com", email: "friend@example.com" }, { memberEmails: ["friend@example.com"], adminEmails: [] }), true);
 });
 
 test("default access settings keep owner and non-member admin emails in admin without forcing them into Google whitelist", () => {

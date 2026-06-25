@@ -6,7 +6,7 @@ import {
   isValidEmail,
   normalizeEmail,
 } from "../features/members.js";
-import { readAccessSettings, writeAccessSettings } from "./db.js?v=20260623-split-ratio-clear";
+import { readAccessSettings, writeAccessSettings } from "./db.js?v=20260625-access-rate-delete";
 import { hasFirebaseConfig } from "./firebase.js";
 
 const LOCAL_ACCESS_KEY = "project-jeju.access-settings";
@@ -51,10 +51,12 @@ export async function saveAccessSettings(settings) {
 }
 
 export function canManageAccess(user, settings) {
+  const email = normalizeEmail(user?.email);
   return user?.mode === "demo" ||
-    isOwnerEmail(user?.email) ||
-    isNonMemberAdminEmail(user?.email) ||
-    normalizeEmailList(settings?.adminEmails).includes(normalizeEmail(user?.email));
+    isOwnerEmail(email) ||
+    isNonMemberAdminEmail(email) ||
+    normalizeEmailList(settings?.adminEmails).includes(email) ||
+    normalizeEmailList(settings?.memberEmails).includes(email);
 }
 
 export function checkGoogleAccess(user, settings) {

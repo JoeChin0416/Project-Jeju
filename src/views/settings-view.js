@@ -5,8 +5,9 @@ import {
   removeGoogleWhitelistEmail,
   saveAccessSettings,
   syncMemberEmails,
-} from "../services/access-control.js?v=20260623-split-ratio-clear";
+} from "../services/access-control.js?v=20260625-access-rate-delete";
 import { clearAiKey, getAiKey, setAiKey, testAiKey } from "../services/ai.js";
+import { fetchLatestExchangeRate } from "../services/exchange-rate.js";
 import { hasFirebaseConfig } from "../services/firebase.js";
 import {
   createManualMember,
@@ -21,8 +22,9 @@ import {
 } from "../features/members.js";
 import { AVATAR_PRESETS, getAvatarPreset, isCustomAvatarUrl, resolveAvatarUrl } from "../features/avatar-presets.js?v=20260623-split-ratio-clear";
 import { setUiStyle, state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260625-access-rate-delete";
 import { escapeHtml, formToObject } from "../utils/dom.js";
+import { confirmDestructiveAction } from "../utils/confirm.js";
 import { fileToCompressedDataUrl } from "../utils/image.js?v=20260623-split-ratio-clear";
 
 const text = {
@@ -70,6 +72,13 @@ const text = {
   start: "開始日期",
   end: "結束日期",
   dailyBudget: "每日總預算（TWD）",
+  tripCurrency: "旅遊原幣",
+  baseCurrency: "換算幣別",
+  exchangeRate: "統一匯率",
+  exchangeRateHelp: "新增記帳會套用這裡的匯率，格式是 1 旅遊原幣 = 多少換算幣別。",
+  fetchExchangeRate: "抓即時匯率並套用",
+  exchangeRateUpdated: "匯率已更新",
+  exchangeRateFailed: "即時匯率抓取失敗，請先手動輸入。",
   saveTrip: "儲存旅行資料",
   savedTrip: "旅行資料已儲存。",
   save: "儲存",
@@ -83,6 +92,7 @@ const text = {
   remove: "移除",
   whitelistEmpty: "目前沒有白名單。主要管理者仍可使用 Google 登入。",
   whitelistUpdated: "白名單已更新。",
+  whitelistRemoveConfirm: "確定要從 Google 登入白名單移除",
   uiStyle: "風格樣式",
   styleHelp: "保留原本風格，並可切換韓系旅行感與海島票券風。",
   style1: "風格1",
@@ -138,6 +148,16 @@ export function settingsView(trip, render) {
             <div class="field"><label>${text.start}</label><input class="input" type="date" name="startDate" value="${escapeHtml(trip.startDate)}" /></div>
             <div class="field"><label>${text.end}</label><input class="input" type="date" name="endDate" value="${escapeHtml(trip.endDate)}" /></div>
           </div>
+          <div class="form-row">
+            <div class="field"><label>${text.tripCurrency}</label><input class="input" name="tripCurrency" value="${escapeHtml(trip.tripCurrency || "KRW")}" /></div>
+            <div class="field"><label>${text.baseCurrency}</label><input class="input" name="baseCurrency" value="${escapeHtml(trip.baseCurrency || "TWD")}" /></div>
+          </div>
+          <div class="field">
+            <label>${text.exchangeRate}</label>
+            <input class="input" name="exchangeRate" inputmode="decimal" value="${escapeHtml(trip.exchangeRate || 0.021)}" data-trip-exchange-rate />
+            <p class="form-help">${text.exchangeRateHelp}</p>
+          </div>
+          <button class="button secondary full" type="button" data-fetch-exchange-rate>${text.fetchExchangeRate}</button>
           <div class="field"><label>${text.dailyBudget}</label><input class="input" name="dailyBudgetBase" inputmode="decimal" value="${escapeHtml(trip.dailyBudgetBase || "")}" /></div>
           <button class="button primary full" type="submit">${text.saveTrip}</button>
         </form>
@@ -169,12 +189,34 @@ export function settingsView(trip, render) {
       root.querySelector("[data-trip-form]")?.addEventListener("submit", (event) => {
         event.preventDefault();
         const data = formToObject(event.currentTarget);
+        const exchangeRate = Number(data.exchangeRate || trip.exchangeRate || 0.021);
         state.store = updateActiveTrip(state.store, (draft) => ({
           ...draft,
           ...data,
+          baseCurrency: normalizeCurrencyCode(data.baseCurrency || draft.baseCurrency || "TWD"),
+          tripCurrency: normalizeCurrencyCode(data.tripCurrency || draft.tripCurrency || "KRW"),
+          exchangeRate: Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : 0.021,
           dailyBudgetBase: Number(data.dailyBudgetBase || 0),
         }));
         state.notice = text.savedTrip;
+        render();
+      });
+
+      root.querySelector("[data-fetch-exchange-rate]")?.addEventListener("click", async () => {
+        const form = root.querySelector("[data-trip-form]");
+        const data = form ? formToObject(form) : {};
+        try {
+          const latest = await fetchLatestExchangeRate(data.tripCurrency || trip.tripCurrency || "KRW", data.baseCurrency || trip.baseCurrency || "TWD");
+          state.store = updateActiveTrip(state.store, (draft) => ({
+            ...draft,
+            tripCurrency: latest.baseCurrency,
+            baseCurrency: latest.quoteCurrency,
+            exchangeRate: latest.rate,
+          }));
+          state.notice = `${text.exchangeRateUpdated}: 1 ${latest.baseCurrency} = ${latest.rate} ${latest.quoteCurrency}${latest.date ? ` (${latest.date})` : ""}`;
+        } catch (error) {
+          state.error = `${text.exchangeRateFailed} ${error.message}`;
+        }
         render();
       });
 
@@ -288,6 +330,7 @@ export function settingsView(trip, render) {
 
         const email = event.target.closest("[data-remove-whitelist]")?.dataset.removeWhitelist;
         if (email) {
+          if (!confirmWhitelistRemoval(email)) return;
           await runMemberUpdate(render, async () => {
             state.accessSettings = await saveAccessSettings(removeGoogleWhitelistEmail(accessSettings, email));
             state.notice = text.whitelistUpdated;
@@ -508,4 +551,12 @@ function renderWhitelist(settings) {
       }
     </div>
   `;
+}
+
+export function confirmWhitelistRemoval(email, confirmFn) {
+  return confirmDestructiveAction(`${text.whitelistRemoveConfirm} ${email}？`, confirmFn);
+}
+
+function normalizeCurrencyCode(currency) {
+  return String(currency || "").trim().toUpperCase();
 }

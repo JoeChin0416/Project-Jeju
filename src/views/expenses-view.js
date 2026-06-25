@@ -6,8 +6,9 @@ import { calculateSettlement } from "../features/settlement.js";
 import { buildDefaultRatioWeights, buildSplitPreview, buildSplitValues, readSplitValuesFromForm, shouldFillMissingRatioInput, summarizeRatioAllocation } from "../features/split-values.js?v=20260623-ratio-status";
 import { resolveAvatarUrl } from "../features/avatar-presets.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260625-access-rate-delete";
 import { formatCurrency } from "../utils/currency.js";
+import { confirmDestructiveAction } from "../utils/confirm.js";
 import { escapeHtml, formToObject } from "../utils/dom.js";
 
 const T = {
@@ -67,6 +68,7 @@ const T = {
   journalDay: "\u65c5\u8a18\u65e5",
   count: "\u7b46",
   unknownMember: "\u672a\u77e5\u6210\u54e1",
+  deleteConfirm: "確定要刪除這筆記帳嗎？刪除後無法從 App 直接復原。",
 };
 
 export function expensesView(trip, render) {
@@ -115,6 +117,7 @@ export function expensesView(trip, render) {
           return;
         }
         if (deleteId) {
+          if (!confirmDestructiveAction(T.deleteConfirm)) return;
           state.store = updateActiveTrip(state.store, (draft) => {
             draft.expenseItems = draft.expenseItems.filter((item) => item.id !== deleteId);
             return draft;

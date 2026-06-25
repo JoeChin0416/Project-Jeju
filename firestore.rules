@@ -63,10 +63,15 @@ service cloud.firestore {
       return isOwner() || isNonMemberAdmin() || isAdmin();
     }
 
+    function onlyChangesGoogleWhitelist() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["settings"])
+        && request.resource.data.settings.diff(resource.data.settings).affectedKeys().hasOnly(["googleWhitelist"]);
+    }
+
     match /sharedTrips/jeju-2026-girls/access/default {
       allow read: if sharedTripUserIsAllowed();
       allow create: if isOwner() || isNonMemberAdmin();
-      allow update: if canManageAccessSettings();
+      allow update: if canManageAccessSettings() || (isTripMember() && onlyChangesGoogleWhitelist());
       allow delete: if false;
     }
 

@@ -5,7 +5,8 @@ import { normalizeRentalChecklist, toggleRentalChecklistItem } from "../features
 import { fetchTripWeather } from "../services/weather.js";
 import { uploadParkingPhoto } from "../services/storage.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260625-access-rate-delete";
+import { confirmDestructiveAction } from "../utils/confirm.js";
 import { escapeHtml, formToObject } from "../utils/dom.js";
 import { fileToCompressedImage } from "../utils/image.js?v=20260623-split-ratio-clear";
 
@@ -38,6 +39,9 @@ const T = {
   moveDown: "下移",
   edit: "編輯",
   delete: "刪除",
+  deletePlaceConfirm: "確定要刪除這個景點嗎？刪除後無法從 App 直接復原。",
+  deleteLodgingConfirm: "確定要刪除這筆住宿嗎？刪除後無法從 App 直接復原。",
+  deleteTransportConfirm: "確定要刪除這筆交通資料嗎？刪除後無法從 App 直接復原。",
   noData: "目前還沒有資料",
   close: "關閉",
   day: "天數",
@@ -264,6 +268,7 @@ export function itineraryView(trip, render) {
           return;
         }
         if (deletePlace) {
+          if (!confirmDestructiveAction(T.deletePlaceConfirm)) return;
           state.store = updateActiveTrip(state.store, (draft) => {
             draft.places = draft.places.filter((place) => place.id !== deletePlace);
             return draft;
@@ -277,6 +282,7 @@ export function itineraryView(trip, render) {
           return;
         }
         if (deleteLodging) {
+          if (!confirmDestructiveAction(T.deleteLodgingConfirm)) return;
           state.store = updateActiveTrip(state.store, (draft) => {
             draft.lodgings = draft.lodgings.filter((item) => item.id !== deleteLodging);
             return draft;
@@ -290,6 +296,7 @@ export function itineraryView(trip, render) {
           return;
         }
         if (deleteTransport) {
+          if (!confirmDestructiveAction(T.deleteTransportConfirm)) return;
           state.store = updateActiveTrip(state.store, (draft) => {
             draft.transportItems = draft.transportItems.filter((item) => item.id !== deleteTransport);
             return draft;

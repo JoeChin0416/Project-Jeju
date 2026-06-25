@@ -71,3 +71,16 @@ test("non-member admin settings do not prompt for a personal trip role", async (
   state.user = null;
   state.accessSettings = null;
 });
+
+test("whitelist removal requires explicit confirmation", async () => {
+  const { confirmWhitelistRemoval } = await import("../src/views/settings-view.js");
+  const calls = [];
+
+  assert.equal(confirmWhitelistRemoval("friend@example.com", (message) => {
+    calls.push(message);
+    return false;
+  }), false);
+  assert.deepEqual(calls, ["確定要從 Google 登入白名單移除 friend@example.com？"]);
+
+  assert.equal(confirmWhitelistRemoval("friend@example.com", () => true), true);
+});

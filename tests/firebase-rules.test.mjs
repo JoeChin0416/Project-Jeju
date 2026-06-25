@@ -146,7 +146,7 @@ test("personal packing can only be read and written by its owner", async () => {
   await assertFails(getDoc(doc(passwordUser("user-b").firestore(), ownerPath)));
 });
 
-test("only owners and admins can manage access settings", async () => {
+test("owners admins and current members can manage Google whitelist", async () => {
   await assertSucceeds(getDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath)));
   await assertFails(getDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), accessPath)));
 
@@ -173,11 +173,23 @@ test("only owners and admins can manage access settings", async () => {
       adminEmails: [ownerEmail, nonMemberAdminEmail, "admin@example.com"],
     },
   }));
+  await assertSucceeds(setDoc(doc(passwordUser("member").firestore(), accessPath), {
+    settings: {
+      googleWhitelist: ["friend@gmail.com", "new-friend@gmail.com"],
+      memberEmails: ["member@example.com"],
+      adminEmails: [ownerEmail, nonMemberAdminEmail, "admin@example.com"],
+    },
+  }));
+
+  await assertFails(setDoc(doc(passwordUser("member").firestore(), accessPath), {
+    settings: {
+      googleWhitelist: ["friend@gmail.com"],
+      memberEmails: ["member@example.com", "new-member@example.com"],
+      adminEmails: [ownerEmail, nonMemberAdminEmail, "admin@example.com"],
+    },
+  }));
   await assertFails(setDoc(doc(googleUser("friend", "friend@gmail.com").firestore(), accessPath), {
     settings: { googleWhitelist: ["friend@gmail.com"], memberEmails: ["friend@gmail.com"], adminEmails: [ownerEmail] },
-  }));
-  await assertFails(setDoc(doc(passwordUser("member").firestore(), accessPath), {
-    settings: { googleWhitelist: ["member@example.com"], memberEmails: ["member@example.com"], adminEmails: [ownerEmail] },
   }));
   await assertFails(setDoc(doc(googleUser("stranger", "stranger@gmail.com").firestore(), accessPath), {
     settings: { googleWhitelist: ["stranger@gmail.com"], memberEmails: ["stranger@gmail.com"], adminEmails: [ownerEmail] },

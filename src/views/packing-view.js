@@ -1,7 +1,10 @@
-import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260625-access-rate-delete";
 import { state } from "../state/app-state.js";
+import { confirmDestructiveAction } from "../utils/confirm.js";
 import { escapeHtml, formToObject } from "../utils/dom.js";
 import { PACKING_CATEGORIES, groupPackingByCategory } from "../features/packing.js";
+
+const DELETE_CONFIRM = "確定要刪除這個行李項目嗎？刪除後無法從 App 直接復原。";
 
 export function packingView(trip, render) {
   const ownerId = state.user?.uid || "demo-user";
@@ -43,6 +46,7 @@ export function packingView(trip, render) {
         }
 
         if (deleteId) {
+          if (!confirmDestructiveAction(DELETE_CONFIRM)) return;
           state.store = updateActiveTrip(state.store, (draft) => {
             draft.packingItems = draft.packingItems.filter((item) => item.id !== deleteId);
             return draft;

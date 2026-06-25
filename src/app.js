@@ -1,5 +1,5 @@
 import { getInitialUser, signInWithEmail, signInWithGoogle, signOutUser } from "./services/auth.js?v=20260623-split-ratio-clear";
-import { checkUserAccess, loadAccessSettings } from "./services/access-control.js?v=20260623-split-ratio-clear";
+import { checkUserAccess, loadAccessSettings } from "./services/access-control.js?v=20260625-access-rate-delete";
 import { needsTripMemberRole } from "./features/members.js";
 import { hasFirebaseConfig, initializeFirebaseRuntime } from "./services/firebase.js";
 import { getActiveTrip, readTabFromHash, setActiveTab, setState, state } from "./state/app-state.js";
@@ -8,13 +8,13 @@ import {
   loadStoreForUser,
   startSharedStoreSubscription,
   stopSharedStoreSubscription,
-} from "./state/trip-store.js?v=20260623-split-ratio-clear";
-import { bindImageInput, cameraView } from "./views/camera-view.js?v=20260623-split-ratio-clear";
-import { expensesView } from "./views/expenses-view.js?v=20260623-ratio-status";
-import { itineraryView } from "./views/itinerary-view.js?v=20260623-split-ratio-clear";
-import { journalView } from "./views/journal-view.js?v=20260623-split-ratio-clear";
-import { packingView } from "./views/packing-view.js?v=20260623-split-ratio-clear";
-import { settingsView } from "./views/settings-view.js?v=20260623-split-ratio-clear";
+} from "./state/trip-store.js?v=20260625-access-rate-delete";
+import { bindImageInput, cameraView } from "./views/camera-view.js?v=20260625-access-rate-delete";
+import { expensesView } from "./views/expenses-view.js?v=20260625-access-rate-delete";
+import { itineraryView } from "./views/itinerary-view.js?v=20260625-access-rate-delete";
+import { journalView } from "./views/journal-view.js?v=20260625-access-rate-delete";
+import { packingView } from "./views/packing-view.js?v=20260625-access-rate-delete";
+import { settingsView } from "./views/settings-view.js?v=20260625-access-rate-delete";
 import { escapeHtml } from "./utils/dom.js";
 
 const text = {

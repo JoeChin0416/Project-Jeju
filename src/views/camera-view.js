@@ -5,7 +5,7 @@ import { buildReceiptItemSplit, calculateReceiptTotal, createBlankReceiptItem, g
 import { recognizeReceiptImage, translateImageLayout } from "../services/ai.js";
 import { uploadReceiptPhoto } from "../services/storage.js?v=20260623-split-ratio-clear";
 import { state } from "../state/app-state.js";
-import { updateActiveTrip } from "../state/trip-store.js?v=20260623-split-ratio-clear";
+import { updateActiveTrip } from "../state/trip-store.js?v=20260625-access-rate-delete";
 import { escapeHtml } from "../utils/dom.js";
 import { fileToCompressedImage } from "../utils/image.js?v=20260623-split-ratio-clear";
 
