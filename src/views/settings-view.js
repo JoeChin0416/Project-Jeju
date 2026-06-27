@@ -5,7 +5,7 @@ import {
   removeGoogleWhitelistEmail,
   saveAccessSettings,
   syncMemberEmails,
-} from "../services/access-control.js?v=20260625-access-rate-delete";
+} from "../services/access-control.js?v=20260627-auth-access-message";
 import { clearAiKey, getAiKey, setAiKey, testAiKey } from "../services/ai.js";
 import { fetchLatestExchangeRate } from "../services/exchange-rate.js";
 import { hasFirebaseConfig } from "../services/firebase.js";

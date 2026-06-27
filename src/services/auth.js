@@ -68,9 +68,11 @@ function inferAuthProvider(user) {
   return providerIds[0] || "";
 }
 
-function normalizeAuthError(error) {
+export function normalizeAuthError(error) {
   if (error?.code === "auth/admin-restricted-operation") {
-    return new Error("Firebase Auth 目前禁止新登入者建立帳號。Google 白名單只會控管 App 資料權限；若要讓白名單使用者第一次 Google 登入，請在 Firebase Auth 允許使用者建立帳號，或先在 Auth 後台建立該使用者。");
+    return new Error(
+      "Firebase Auth 目前禁止終端使用者建立帳號。白名單只控制 App 資料權限，不能自動建立 Firebase Auth 使用者。請先暫時開啟 Firebase Auth 的建立帳號功能，讓這個 Google 帳號成功登入一次，或由管理者用後端/Admin SDK 建立可登入的 Auth 使用者。",
+    );
   }
   return error;
 }

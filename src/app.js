@@ -1,5 +1,5 @@
-import { getInitialUser, signInWithEmail, signInWithGoogle, signOutUser } from "./services/auth.js?v=20260623-split-ratio-clear";
-import { checkUserAccess, loadAccessSettings } from "./services/access-control.js?v=20260625-access-rate-delete";
+import { getInitialUser, signInWithEmail, signInWithGoogle, signOutUser } from "./services/auth.js?v=20260627-auth-access-message";
+import { checkUserAccess, loadAccessSettings } from "./services/access-control.js?v=20260627-auth-access-message";
 import { needsTripMemberRole } from "./features/members.js";
 import { hasFirebaseConfig, initializeFirebaseRuntime } from "./services/firebase.js";
 import { getActiveTrip, readTabFromHash, setActiveTab, setState, state } from "./state/app-state.js";

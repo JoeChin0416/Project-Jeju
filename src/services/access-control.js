@@ -17,6 +17,13 @@ const DEFAULT_ACCESS_SETTINGS = {
   adminEmails: [...OWNER_EMAILS, ...NON_MEMBER_ADMIN_EMAILS],
 };
 
+const ACCESS_MESSAGES = {
+  missingSettings: "登入權限尚未初始化，請先由主要管理者建立或更新白名單設定。",
+  emptyGoogleWhitelist: "Google 登入白名單尚未開放，請先請主要管理者在設定中加入你的 Email。",
+  notAllowed: "這個帳號尚未被加入旅伴角色或 Google 白名單，請先請主要管理者開放權限。",
+  invalidEmail: "請輸入有效的 Email。",
+};
+
 export function createDefaultAccessSettings() {
   return normalizeAccessSettings(null);
 }
@@ -73,7 +80,7 @@ export function checkUserAccess(user, settings) {
   if (!settings) {
     return {
       allowed: false,
-      reason: "登入權限尚未初始化，請先由主要管理者登入並建立設定。",
+      reason: ACCESS_MESSAGES.missingSettings,
     };
   }
 
@@ -88,20 +95,20 @@ export function checkUserAccess(user, settings) {
   if (user.authProvider === "google.com" && googleWhitelist.length === 0) {
     return {
       allowed: false,
-      reason: "Google 登入白名單尚未開放，請先請主要管理者在設定中加入你的 Email。",
+      reason: ACCESS_MESSAGES.emptyGoogleWhitelist,
     };
   }
 
   return {
     allowed: false,
-    reason: "這個帳號尚未被加入旅伴角色或 Google 白名單，請先請主要管理者開放權限。",
+    reason: ACCESS_MESSAGES.notAllowed,
   };
 }
 
 export function addGoogleWhitelistEmail(settings, email) {
   const normalizedEmail = normalizeEmail(email);
   if (!isValidEmail(normalizedEmail)) {
-    throw new Error("請輸入有效的 Email。");
+    throw new Error(ACCESS_MESSAGES.invalidEmail);
   }
 
   return normalizeAccessSettings({

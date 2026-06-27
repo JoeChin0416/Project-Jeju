@@ -59,7 +59,7 @@ test("blocks password users that are not owner admin or trip members", () => {
   );
 
   assert.equal(result.allowed, false);
-  assert.match(result.reason, /旅伴角色/);
+  assert.match(result.reason, /尚未被加入旅伴角色/);
 });
 
 test("blocks Google accounts while whitelist is empty", () => {
@@ -69,7 +69,7 @@ test("blocks Google accounts while whitelist is empty", () => {
   );
 
   assert.equal(result.allowed, false);
-  assert.match(result.reason, /白名單/);
+  assert.match(result.reason, /白名單尚未開放/);
 });
 
 test("allows whitelisted Google accounts before their trip role is created", () => {
@@ -88,7 +88,7 @@ test("blocks Google accounts until access settings have been initialized", () =>
   );
 
   assert.equal(result.allowed, false);
-  assert.match(result.reason, /尚未初始化/);
+  assert.match(result.reason, /登入權限尚未初始化/);
 });
 
 test("blocks Google accounts missing from whitelist", () => {
@@ -98,7 +98,7 @@ test("blocks Google accounts missing from whitelist", () => {
   );
 
   assert.equal(result.allowed, false);
-  assert.match(result.reason, /尚未被加入/);
+  assert.match(result.reason, /尚未被加入旅伴角色/);
 });
 
 test("normalizes whitelist email add and remove", () => {
@@ -109,4 +109,8 @@ test("normalizes whitelist email add and remove", () => {
 
   assert.equal(settings.googleWhitelist.filter((email) => email === "friend@gmail.com").length, 1);
   assert.ok(!removeGoogleWhitelistEmail(settings, "FRIEND@gmail.com").googleWhitelist.includes("friend@gmail.com"));
+});
+
+test("rejects invalid whitelist email with a readable message", () => {
+  assert.throws(() => addGoogleWhitelistEmail({}, "bad email"), /有效的 Email/);
 });
